@@ -1,19 +1,19 @@
-"use client"
+"use client";
 
-import { Bell, ChevronDown } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { Bell, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface DashboardHeaderProps {
-  greeting?: string
-  userName?: string
-  subtitle?: string
+  greeting?: string;
+  userName?: string;
+  subtitle?: string;
 }
 
 export function DashboardHeader({
   greeting = "Good morning",
-  userName = "James",
+  userName = "Omkar",
   subtitle = "How can we assit you to day?",
 }: DashboardHeaderProps) {
   return (
@@ -32,13 +32,16 @@ export function DashboardHeader({
         </Button>
         <Button variant="ghost" className="gap-2">
           <Avatar className="h-8 w-8">
-            <AvatarImage src="/placeholder.svg?height=32&width=32" alt={userName} />
+            <AvatarImage
+              src="/placeholder.svg?height=32&width=32"
+              alt={userName}
+            />
             <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
           </Avatar>
-          <span className="font-medium">Nola Alexander</span>
+          <span className="font-medium">{userName}</span>
           <ChevronDown className="h-4 w-4" />
         </Button>
       </div>
     </header>
-  )
+  );
 }

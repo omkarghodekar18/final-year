@@ -1,10 +1,22 @@
-import { SiteHeader } from "@/components/site-header"
-import { SiteFooter } from "@/components/site-footer"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Check, MessageSquare, BarChart3, Target, Sparkles } from "lucide-react"
-import Link from "next/link"
+import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Check,
+  MessageSquare,
+  BarChart3,
+  Target,
+  Sparkles,
+} from "lucide-react";
+import Link from "next/link";
 
 export default function LandingPage() {
   return (
@@ -24,8 +36,8 @@ export default function LandingPage() {
               Ace Your Interviews with AI
             </h1>
             <p className="max-w-2xl text-balance text-lg text-muted-foreground md:text-xl">
-              Practice with AI-powered mock interviews, get real-time feedback, and track your progress. Build
-              confidence and land your dream job.
+              Practice with AI-powered mock interviews, get real-time feedback,
+              and track your progress. Build confidence and land your dream job.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <Button size="lg" asChild>
@@ -47,19 +59,28 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Social Proof */}
+        {/* Social Proof
         <section className="border-y border-border/40 bg-muted/30 py-12">
           <div className="mx-auto w-full max-w-7xl px-6">
-            <p className="mb-8 text-center text-sm font-medium text-muted-foreground">TRUSTED BY PROFESSIONALS AT</p>
+            <p className="mb-8 text-center text-sm font-medium text-muted-foreground">
+              TRUSTED BY PROFESSIONALS AT
+            </p>
             <div className="grid grid-cols-2 gap-8 md:grid-cols-4 lg:grid-cols-5">
-              {["Google", "Microsoft", "Amazon", "Meta", "Apple"].map((company) => (
-                <div key={company} className="flex items-center justify-center">
-                  <span className="text-xl font-semibold text-muted-foreground/60">{company}</span>
-                </div>
-              ))}
+              {["Google", "Microsoft", "Amazon", "Meta", "Apple"].map(
+                (company) => (
+                  <div
+                    key={company}
+                    className="flex items-center justify-center"
+                  >
+                    <span className="text-xl font-semibold text-muted-foreground/60">
+                      {company}
+                    </span>
+                  </div>
+                )
+              )}
             </div>
           </div>
-        </section>
+        </section> */}
 
         {/* Features Section */}
         <section id="features" className="mx-auto w-full max-w-7xl px-6 py-24">
@@ -69,7 +90,8 @@ export default function LandingPage() {
               Everything you need to succeed
             </h2>
             <p className="max-w-2xl text-balance text-lg text-muted-foreground">
-              Comprehensive tools and insights to help you prepare for any interview scenario
+              Comprehensive tools and insights to help you prepare for any
+              interview scenario
             </p>
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -80,7 +102,8 @@ export default function LandingPage() {
                 </div>
                 <CardTitle>Real-Time Feedback</CardTitle>
                 <CardDescription>
-                  Get instant AI-powered feedback on your responses, body language, and communication skills
+                  Get instant AI-powered feedback on your responses, body
+                  language, and communication skills
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -91,7 +114,8 @@ export default function LandingPage() {
                 </div>
                 <CardTitle>Multiple Interview Modes</CardTitle>
                 <CardDescription>
-                  Practice technical, behavioral, system design, and communication interviews
+                  Practice technical, behavioral, system design, and
+                  communication interviews
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -102,7 +126,8 @@ export default function LandingPage() {
                 </div>
                 <CardTitle>Analytics Dashboard</CardTitle>
                 <CardDescription>
-                  Track your progress over time with detailed performance metrics and insights
+                  Track your progress over time with detailed performance
+                  metrics and insights
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -113,7 +138,8 @@ export default function LandingPage() {
                 </div>
                 <CardTitle>Personalized Plans</CardTitle>
                 <CardDescription>
-                  Receive customized improvement recommendations based on your performance
+                  Receive customized improvement recommendations based on your
+                  performance
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -121,12 +147,15 @@ export default function LandingPage() {
         </section>
 
         {/* Testimonials Section */}
-        <section id="testimonials" className="border-y border-border/40 bg-muted/30 py-24">
+        <section
+          id="testimonials"
+          className="border-y border-border/40 bg-muted/30 py-24"
+        >
           <div className="mx-auto w-full max-w-7xl px-6">
             <div className="mb-16 flex flex-col items-center gap-4 text-center">
               <Badge variant="secondary">Testimonials</Badge>
               <h2 className="text-balance text-4xl font-bold tracking-tight md:text-5xl">
-                Loved by job seekers worldwide
+                Loved by job seekers
               </h2>
             </div>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -154,17 +183,25 @@ export default function LandingPage() {
                   <CardHeader>
                     <div className="mb-4 flex items-center gap-1">
                       {[...Array(5)].map((_, i) => (
-                        <svg key={i} className="h-4 w-4 fill-primary text-primary" viewBox="0 0 20 20">
+                        <svg
+                          key={i}
+                          className="h-4 w-4 fill-primary text-primary"
+                          viewBox="0 0 20 20"
+                        >
                           <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
                         </svg>
                       ))}
                     </div>
-                    <CardDescription className="text-base leading-relaxed">{testimonial.content}</CardDescription>
+                    <CardDescription className="text-base leading-relaxed">
+                      {testimonial.content}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div>
                       <p className="font-semibold">{testimonial.name}</p>
-                      <p className="text-sm text-muted-foreground">{testimonial.role}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {testimonial.role}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -174,11 +211,15 @@ export default function LandingPage() {
         </section>
 
         {/* Pricing Section */}
-        <section id="pricing" className="mx-auto w-full max-w-7xl px-6 py-24">
+        {/* <section id="pricing" className="mx-auto w-full max-w-7xl px-6 py-24">
           <div className="mb-16 flex flex-col items-center gap-4 text-center">
             <Badge variant="secondary">Pricing</Badge>
-            <h2 className="text-balance text-4xl font-bold tracking-tight md:text-5xl">Choose your plan</h2>
-            <p className="max-w-2xl text-balance text-lg text-muted-foreground">Start free and upgrade as you grow</p>
+            <h2 className="text-balance text-4xl font-bold tracking-tight md:text-5xl">
+              Choose your plan
+            </h2>
+            <p className="max-w-2xl text-balance text-lg text-muted-foreground">
+              Start free and upgrade as you grow
+            </p>
           </div>
           <div className="grid gap-8 md:grid-cols-3">
             {[
@@ -186,7 +227,12 @@ export default function LandingPage() {
                 name: "Free",
                 price: "$0",
                 description: "Perfect for getting started",
-                features: ["5 mock interviews per month", "Basic feedback", "Limited analytics", "Community support"],
+                features: [
+                  "5 mock interviews per month",
+                  "Basic feedback",
+                  "Limited analytics",
+                  "Community support",
+                ],
               },
               {
                 name: "Pro",
@@ -214,14 +260,23 @@ export default function LandingPage() {
                 ],
               },
             ].map((plan, i) => (
-              <Card key={i} className={plan.popular ? "border-primary shadow-lg" : "border-border/50"}>
+              <Card
+                key={i}
+                className={
+                  plan.popular ? "border-primary shadow-lg" : "border-border/50"
+                }
+              >
                 <CardHeader>
-                  {plan.popular && <Badge className="mb-2 w-fit">Most Popular</Badge>}
+                  {plan.popular && (
+                    <Badge className="mb-2 w-fit">Most Popular</Badge>
+                  )}
                   <CardTitle className="text-2xl">{plan.name}</CardTitle>
                   <CardDescription>{plan.description}</CardDescription>
                   <div className="mt-4">
                     <span className="text-4xl font-bold">{plan.price}</span>
-                    {plan.price !== "Custom" && <span className="text-muted-foreground">/month</span>}
+                    {plan.price !== "Custom" && (
+                      <span className="text-muted-foreground">/month</span>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -233,33 +288,42 @@ export default function LandingPage() {
                       </li>
                     ))}
                   </ul>
-                  <Button className="mt-6 w-full" variant={plan.popular ? "default" : "outline"} asChild>
-                    <Link href="/signup">{plan.price === "Custom" ? "Contact Sales" : "Get Started"}</Link>
+                  <Button
+                    className="mt-6 w-full"
+                    variant={plan.popular ? "default" : "outline"}
+                    asChild
+                  >
+                    <Link href="/signup">
+                      {plan.price === "Custom"
+                        ? "Contact Sales"
+                        : "Get Started"}
+                    </Link>
                   </Button>
                 </CardContent>
               </Card>
             ))}
           </div>
-        </section>
+        </section> */}
 
         {/* CTA Section */}
-        <section className="border-y border-border/40 bg-muted/30 py-24">
+        {/* <section className="border-y border-border/40 bg-muted/30 py-24">
           <div className="mx-auto w-full max-w-7xl px-6">
             <div className="flex flex-col items-center gap-6 text-center">
               <h2 className="text-balance text-4xl font-bold tracking-tight md:text-5xl">
                 Ready to ace your next interview?
               </h2>
               <p className="max-w-2xl text-balance text-lg text-muted-foreground">
-                Join thousands of professionals who have improved their interview skills with SkillsBridge
+                Join thousands of professionals who have improved their
+                interview skills with SkillsBridge
               </p>
               <Button size="lg" asChild>
                 <Link href="/signup">Start Free Trial</Link>
               </Button>
             </div>
           </div>
-        </section>
+        </section> */}
       </main>
       <SiteFooter />
     </div>
-  )
+  );
 }

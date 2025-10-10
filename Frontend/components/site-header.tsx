@@ -1,6 +1,6 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { ThemeToggle } from "@/components/theme-toggle"
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function SiteHeader() {
   return (
@@ -9,7 +9,9 @@ export function SiteHeader() {
         <div className="flex items-center gap-8">
           <Link href="/" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <span className="text-lg font-bold text-primary-foreground">SB</span>
+              <span className="text-lg font-bold text-primary-foreground">
+                SB
+              </span>
             </div>
             <span className="text-xl font-bold">SkillsBridge</span>
           </Link>
@@ -20,12 +22,12 @@ export function SiteHeader() {
             >
               Features
             </Link>
-            <Link
+            {/* <Link
               href="/#pricing"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
               Pricing
-            </Link>
+            </Link> */}
             <Link
               href="/#testimonials"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -45,5 +47,5 @@ export function SiteHeader() {
         </div>
       </div>
     </header>
-  )
+  );
 }
