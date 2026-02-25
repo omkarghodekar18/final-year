@@ -50,33 +50,6 @@ interface Answer {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySpeechRecognition = any
 
-// Known male voice name fragments to skip when a female is available
-const MALE_VOICE_PATTERNS = /\b(Guy|David|Mark|James|Christopher|Richard|George|Ryan|Eric|Tom)\b/i
-
-// ── Find the best female, natural-sounding voice available ────────────────────
-function pickBestVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
-  // Microsoft Neural / Natural Windows voices – female priority list
-  const femaleOnline: Array<(v: SpeechSynthesisVoice) => boolean> = [
-    (v) => /Aria Online/i.test(v.name),           // best – very human female
-    (v) => /Jenny Online/i.test(v.name),
-    (v) => /Natasha Online/i.test(v.name),
-    (v) => /Eva Online/i.test(v.name),
-    (v) => /Emma Online/i.test(v.name),
-    (v) => /Natural/i.test(v.name) && v.lang.startsWith("en") && !MALE_VOICE_PATTERNS.test(v.name),
-    (v) => /Microsoft/i.test(v.name) && v.lang.startsWith("en") && !MALE_VOICE_PATTERNS.test(v.name),
-    (v) => /Zira/i.test(v.name),                  // local Windows female fallback
-    (v) => /Google/i.test(v.name) && v.lang === "en-US" && !MALE_VOICE_PATTERNS.test(v.name),
-    (v) => v.lang === "en-US" && !v.localService && !MALE_VOICE_PATTERNS.test(v.name),
-    (v) => v.lang === "en-US",
-    () => true,
-  ]
-  for (const test of femaleOnline) {
-    const match = voices.find(test)
-    if (match) return match
-  }
-  return voices[0]
-}
-
 export default function InterviewSessionPage() {
   const params = useParams()
   const { getToken } = useAuth()
@@ -104,7 +77,6 @@ export default function InterviewSessionPage() {
     async function initQuestions() {
       try {
         const token = await getToken()
-        console.log("Sending job_id to /api/ask:", JSON.stringify(params.id))
         const res = await fetch("http://localhost:5000/api/ask", {
           method: "POST",
           headers: {
@@ -114,23 +86,18 @@ export default function InterviewSessionPage() {
           body: JSON.stringify({ job_id: params.id })
         })
         if (!res.ok) {
-          const errText = await res.text()
           // If rate-limited (429 or 503), silently use fallback questions
           if (res.status === 429 || res.status === 503) {
-            console.log("AI rate-limited, using fallback questions.")
             if (mounted) setQuestions(FALLBACK_QUESTIONS)
             return
           }
-          console.error("Backend Error Response:", res.status, errText)
-          throw new Error(`Failed to fetch questions: ${res.status} ${errText}`)
+          throw new Error(`Failed to fetch questions: ${res.status}`)
         }
         const data = await res.json()
-        console.log("data" , data.questions)
         if (mounted) {
            setQuestions(data.questions?.length ? data.questions : FALLBACK_QUESTIONS)
         }
-      } catch (err) {
-        console.error("AI question generation failed:", err)
+      } catch {
         if (mounted) setQuestions(FALLBACK_QUESTIONS)
       } finally {
         if (mounted) setLoadingQuestions(false)
@@ -200,21 +167,11 @@ export default function InterviewSessionPage() {
         setAvatarAmplitude(0)
         onEnd?.()
       }
-    } catch (err) {
-      // Fallback to browser SpeechSynthesis if backend unavailable
-      console.warn("edge-tts backend unavailable, falling back to SpeechSynthesis:", err)
-      cancelAnimationFrame(animFrameRef.current)
-      const utter        = new SpeechSynthesisUtterance(text)
-      utter.lang         = "en-US"
-      utter.rate         = 0.88
-      utter.pitch        = 1.1
-      const voices       = window.speechSynthesis.getVoices()
-      const voice        = pickBestVoice(voices)
-      if (voice) utter.voice = voice
-      utter.onstart = () => setAvatarSpeaking(true)
-      utter.onend   = () => { setAvatarSpeaking(false); setAvatarAmplitude(0); onEnd?.() }
-      utter.onerror = () => { setAvatarSpeaking(false); setAvatarAmplitude(0); onEnd?.() }
-      window.speechSynthesis.speak(utter)
+    } catch {
+      // TTS backend unavailable — skip speaking and move to next phase
+      setAvatarSpeaking(false)
+      setAvatarAmplitude(0)
+      onEnd?.()
     }
   }, [])
 
@@ -277,16 +234,7 @@ export default function InterviewSessionPage() {
     const updated = [...answers, current]
     setAnswers(updated)
 
-    console.log(`\n📝 Q${questionIndex + 1}: ${current.question}`)
-    console.log(`💬 Answer: ${current.transcript}`)
-
     if (questionIndex + 1 >= questions.length) {
-      console.log("\n\n====== INTERVIEW COMPLETE ======")
-      updated.forEach((a, i) => {
-        console.log(`\nQ${i + 1}: ${a.question}`)
-        console.log(`A:  ${a.transcript}`)
-      })
-      console.log("================================\n")
       setPhase("done")
     } else {
       const next = questionIndex + 1
