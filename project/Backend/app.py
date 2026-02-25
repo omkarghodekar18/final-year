@@ -4,6 +4,8 @@ from utils.nlp import get_skill_extractor
 from flask import Flask, jsonify, g, request
 from flask_cors import CORS
 from dotenv import load_dotenv
+from utils.tts_service import generate_speech_bytes
+from flask import Response
 from utils.scheduler import start_scheduler
 import cloudinary
 import cloudinary.uploader
@@ -297,6 +299,33 @@ def parse_resume():
     finally:
         if os.path.exists(filepath):
             os.remove(filepath)
+
+
+# ── Text-to-Speech ───────────────────────────────────────────────────────────
+@app.route("/api/tts/speak", methods=["POST", "OPTIONS"])
+def tts_speak():
+    """POST {"text": "..."} → streams a WAV audio file."""
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json(silent=True) or {}
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "text is required"}), 400
+
+    try:
+        wav_bytes = generate_speech_bytes(text)
+        return Response(
+            wav_bytes,
+            mimetype="audio/mpeg",
+            headers={
+                "Cache-Control": "no-store",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+    except Exception as e:
+        print(f"TTS error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

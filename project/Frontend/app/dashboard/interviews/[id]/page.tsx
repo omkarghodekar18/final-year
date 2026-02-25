@@ -83,51 +83,96 @@ function pickBestVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | u
 export default function InterviewSessionPage() {
   const params = useParams()
 
-  const [phase, setPhase]                 = useState<Phase>("intro")
-  const [questionIndex, setQuestionIndex] = useState(0)
-  const [transcript, setTranscript]       = useState("")
-  const [isMuted, setIsMuted]             = useState(false)
-  const [answers, setAnswers]             = useState<Answer[]>([])
+  const [phase, setPhase]                   = useState<Phase>("intro")
+  const [questionIndex, setQuestionIndex]   = useState(0)
+  const [transcript, setTranscript]         = useState("")
+  const [isMuted, setIsMuted]               = useState(false)
+  const [answers, setAnswers]               = useState<Answer[]>([])
   const [avatarSpeaking, setAvatarSpeaking] = useState(false)
+  const [avatarAmplitude, setAvatarAmplitude] = useState(0)   // 0-1 real audio level
   const [listeningActive, setListeningActive] = useState(false)
-  const [voicesReady, setVoicesReady]     = useState(false)
 
-  const recognitionRef = useRef<AnySpeechRecognition>(null)
-  const bestVoiceRef   = useRef<SpeechSynthesisVoice | null>(null)
+  const recognitionRef  = useRef<AnySpeechRecognition>(null)
+  const audioCtxRef     = useRef<AudioContext | null>(null)
+  const analyserRef     = useRef<AnalyserNode | null>(null)
+  const animFrameRef    = useRef<number>(0)
+  const sourceRef       = useRef<AudioBufferSourceNode | null>(null)
 
-  // Pre-load and pick best voice as soon as voices are available
-  useEffect(() => {
-    const load = () => {
-      const voices = window.speechSynthesis.getVoices()
-      if (voices.length) {
-        bestVoiceRef.current = pickBestVoice(voices) ?? null
-        setVoicesReady(true)
+  // ── TTS via edge-tts backend ── with SpeechSynthesis fallback ─────────────
+  const speak = useCallback(async (text: string, onEnd?: () => void) => {
+    // Stop any currently playing audio
+    sourceRef.current?.stop()
+    cancelAnimationFrame(animFrameRef.current)
+    setAvatarAmplitude(0)
+
+    try {
+      // 1. Fetch MP3 from edge-tts backend
+      const res = await fetch("http://localhost:5000/api/tts/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      })
+      if (!res.ok) throw new Error(`TTS backend returned ${res.status}`)
+
+      const audioData = await res.arrayBuffer()
+
+      // 2. Decode into Web Audio API
+      if (!audioCtxRef.current) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
       }
+      const ctx = audioCtxRef.current
+
+      const audioBuffer = await ctx.decodeAudioData(audioData)
+
+      // 3. Wire: source → analyser → destination
+      const analyser = ctx.createAnalyser()
+      analyser.fftSize = 256
+      analyserRef.current = analyser
+
+      const source = ctx.createBufferSource()
+      source.buffer = audioBuffer
+      source.connect(analyser)
+      analyser.connect(ctx.destination)
+      sourceRef.current = source
+
+      // 4. Start mouth animation and play — both triggered together
+      const dataArr = new Uint8Array(analyser.frequencyBinCount)
+      const tick = () => {
+        analyser.getByteFrequencyData(dataArr)
+        const avg = dataArr.reduce((s, v) => s + v, 0) / dataArr.length
+        setAvatarAmplitude(avg / 255)          // normalise 0-1
+        animFrameRef.current = requestAnimationFrame(tick)
+      }
+
+      // 5. Play — only now does the mouth start moving
+      setAvatarSpeaking(true)
+      animFrameRef.current = requestAnimationFrame(tick)
+      source.start()
+      source.onended = () => {
+        cancelAnimationFrame(animFrameRef.current)
+        setAvatarSpeaking(false)
+        setAvatarAmplitude(0)
+        onEnd?.()
+      }
+    } catch (err) {
+      // Fallback to browser SpeechSynthesis if backend unavailable
+      console.warn("edge-tts backend unavailable, falling back to SpeechSynthesis:", err)
+      cancelAnimationFrame(animFrameRef.current)
+      const utter        = new SpeechSynthesisUtterance(text)
+      utter.lang         = "en-US"
+      utter.rate         = 0.88
+      utter.pitch        = 1.1
+      const voices       = window.speechSynthesis.getVoices()
+      const voice        = pickBestVoice(voices)
+      if (voice) utter.voice = voice
+      utter.onstart = () => setAvatarSpeaking(true)
+      utter.onend   = () => { setAvatarSpeaking(false); setAvatarAmplitude(0); onEnd?.() }
+      utter.onerror = () => { setAvatarSpeaking(false); setAvatarAmplitude(0); onEnd?.() }
+      window.speechSynthesis.speak(utter)
     }
-    load()
-    window.speechSynthesis.onvoiceschanged = load
-    return () => { window.speechSynthesis.onvoiceschanged = null }
   }, [])
 
-  // ── TTS ───────────────────────────────────────────────────────────────────
-  const speak = useCallback((text: string, onEnd?: () => void) => {
-    if (!window.speechSynthesis) return
-    window.speechSynthesis.cancel()
-
-    const utter        = new SpeechSynthesisUtterance(text)
-    utter.lang         = "en-US"
-    utter.rate         = 0.88  // slightly slower – clearer, more natural
-    utter.pitch        = 1.1   // warmer feminine pitch
-    utter.volume       = 1
-
-    if (bestVoiceRef.current) utter.voice = bestVoiceRef.current
-
-    utter.onstart = () => setAvatarSpeaking(true)
-    utter.onend   = () => { setAvatarSpeaking(false); onEnd?.() }
-    utter.onerror = () => { setAvatarSpeaking(false); onEnd?.() }
-
-    window.speechSynthesis.speak(utter)
-  }, [])
 
   // ── STT ───────────────────────────────────────────────────────────────────
   const startListening = useCallback(() => {
@@ -286,10 +331,9 @@ export default function InterviewSessionPage() {
           <Button
             size="lg"
             onClick={startInterview}
-            disabled={!voicesReady}
             className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-10"
           >
-            {voicesReady ? "Start Interview" : "Loading voices…"}
+            Start Interview
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -337,7 +381,7 @@ export default function InterviewSessionPage() {
 
         {/* Avatar */}
         <div className="w-full rounded-2xl overflow-hidden bg-gradient-to-b from-slate-900 to-slate-800 border border-slate-700 shadow-2xl">
-          <AIAvatar3D isSpeaking={avatarSpeaking} />
+          <AIAvatar3D isSpeaking={avatarSpeaking} amplitude={avatarAmplitude} />
         </div>
 
         {/* Speaking wave indicator */}

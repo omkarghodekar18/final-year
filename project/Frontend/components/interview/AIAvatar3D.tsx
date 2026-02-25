@@ -16,7 +16,7 @@ const VISEME_CYCLE = [
   "viseme_PP", "viseme_FF", "viseme_CH", "viseme_DD", "viseme_sil",
 ]
 
-function AvatarModel({ isSpeaking }: { isSpeaking: boolean }) {
+function AvatarModel({ isSpeaking, amplitude }: { isSpeaking: boolean; amplitude: number }) {
   const { scene } = useGLTF(AVATAR_URL)
   const morphMeshes = useRef<THREE.SkinnedMesh[]>([])
   const visemeIdx   = useRef(0)
@@ -45,22 +45,26 @@ function AvatarModel({ isSpeaking }: { isSpeaking: boolean }) {
     const dict = primary.morphTargetDictionary
     const inf  = primary.morphTargetInfluences
 
-    if (isSpeaking) {
-      visemeTimer.current += delta
-      if (visemeTimer.current > 0.1 + Math.random() * 0.05) {
-        visemeTimer.current = 0
-        for (const k of Object.keys(dict)) {
-          if (k.startsWith("viseme_") && dict[k] !== undefined) inf[dict[k]] *= 0.3
-        }
-        visemeIdx.current = (visemeIdx.current + 1) % VISEME_CYCLE.length
-        const k = VISEME_CYCLE[visemeIdx.current]
-        if (dict[k] !== undefined) inf[dict[k]] = 0.5 + Math.random() * 0.45
-      }
-    } else {
-      for (const k of Object.keys(dict)) {
-        if (k.startsWith("viseme_") && dict[k] !== undefined)
-          inf[dict[k]] = THREE.MathUtils.lerp(inf[dict[k]], 0, delta * 12)
-      }
+    // ── Real amplitude-driven lip sync ────────────────────────────────────
+    // amplitude = 0-1 from Web Audio AnalyserNode (or 0 when fallback TTS used)
+    const mouthTarget = isSpeaking
+      ? amplitude > 0
+        ? amplitude * 0.9                              // real audio amplitude
+        : 0.2 + Math.abs(Math.sin(Date.now() * 0.01)) * 0.4  // fallback sine
+      : 0
+
+    // Apply to jawOpen + viseme_aa (both control mouth opening in RPM avatars)
+    if (dict["jawOpen"] !== undefined)
+      inf[dict["jawOpen"]] = THREE.MathUtils.lerp(inf[dict["jawOpen"]], mouthTarget, delta * 15)
+    if (dict["viseme_aa"] !== undefined)
+      inf[dict["viseme_aa"]] = THREE.MathUtils.lerp(inf[dict["viseme_aa"]], mouthTarget * 0.7, delta * 15)
+    if (dict["mouthOpen"] !== undefined)
+      inf[dict["mouthOpen"]] = THREE.MathUtils.lerp(inf[dict["mouthOpen"]], mouthTarget, delta * 15)
+
+    // Ease all other visemes to 0
+    for (const k of Object.keys(dict)) {
+      if (k.startsWith("viseme_") && k !== "viseme_aa" && k !== "viseme_sil" && dict[k] !== undefined)
+        inf[dict[k]] = THREE.MathUtils.lerp(inf[dict[k]], 0, delta * 8)
     }
 
     blinkTimer.current += delta
@@ -102,7 +106,7 @@ function Loader() {
   )
 }
 
-export function AIAvatar3D({ isSpeaking }: { isSpeaking: boolean }) {
+export function AIAvatar3D({ isSpeaking, amplitude = 0 }: { isSpeaking: boolean; amplitude?: number }) {
   const [error, setError] = useState(false)
 
   if (error) {
@@ -137,7 +141,7 @@ export function AIAvatar3D({ isSpeaking }: { isSpeaking: boolean }) {
           <directionalLight position={[2, 1, 1]}      intensity={0.6} color="#c7d2fe" />
           <directionalLight position={[0, 0.5, -2]}   intensity={0.3} color="#818cf8" />
 
-          <AvatarModel isSpeaking={isSpeaking} />
+          <AvatarModel isSpeaking={isSpeaking} amplitude={amplitude} />
           <Environment preset="studio" />
         </Canvas>
       </Suspense>
