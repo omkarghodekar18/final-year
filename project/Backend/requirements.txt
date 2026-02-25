@@ -1,1 +1,7 @@
 flask
+flask-cors
+PyJWT
+cryptography
+python-dotenv
+requests
+pymongo

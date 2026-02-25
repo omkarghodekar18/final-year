@@ -1,3 +1,8 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { useAuth } from "@clerk/nextjs"
+import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -5,9 +10,131 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Mail, MapPin, Briefcase, Calendar, Award } from "lucide-react"
+import { Mail, MapPin, Briefcase, Calendar, Award, Loader2 } from "lucide-react"
+
+const API_BASE = "http://localhost:5000"
+
+interface UserProfile {
+  first_name?: string
+  last_name?: string
+  email?: string
+  phone?: string
+  location?: string
+  job_title?: string
+  bio?: string
+  profile_image_url?: string
+  created_at?: string
+}
 
 export default function ProfilePage() {
+  const { getToken } = useAuth()
+
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  // Form fields
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
+  const [location, setLocation] = useState("")
+  const [jobTitle, setJobTitle] = useState("")
+  const [bio, setBio] = useState("")
+  const [profileImageUrl, setProfileImageUrl] = useState("")
+  const [createdAt, setCreatedAt] = useState("")
+
+  // Snapshot of last-saved values (for Cancel)
+  const [saved, setSaved] = useState<UserProfile>({})
+
+  // ── Load profile on mount ─────────────────────────────────────────────────
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = await getToken()
+        const res = await fetch(`${API_BASE}/api/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) throw new Error("Failed to load profile")
+        const data: UserProfile = await res.json()
+        applyData(data)
+        setSaved(data)
+      } catch (err) {
+        console.error(err)
+        toast.error("Could not load your profile")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchProfile()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const applyData = (data: UserProfile) => {
+    setFirstName(data.first_name ?? "")
+    setLastName(data.last_name ?? "")
+    setEmail(data.email ?? "")
+    setPhone(data.phone ?? "")
+    setLocation(data.location ?? "")
+    setJobTitle(data.job_title ?? "")
+    setBio(data.bio ?? "")
+    setProfileImageUrl(data.profile_image_url ?? "")
+    setCreatedAt(data.created_at ?? "")
+  }
+
+  // ── Save profile ──────────────────────────────────────────────────────────
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_BASE}/api/me`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          first_name: firstName,
+          last_name: lastName,
+          email,
+          phone,
+          location,
+          job_title: jobTitle,
+          bio,
+        }),
+      })
+      if (!res.ok) throw new Error("Update failed")
+      const updated: UserProfile = await res.json()
+      applyData(updated)
+      setSaved(updated)
+      toast.success("Profile updated successfully")
+    } catch (err) {
+      console.error(err)
+      toast.error("Failed to update profile")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleCancel = () => {
+    applyData(saved)
+  }
+
+  // ── Derived values ────────────────────────────────────────────────────────
+  const fullName = [firstName, lastName].filter(Boolean).join(" ") || "User"
+  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || "U"
+  const joinedDate = createdAt
+    ? new Date(createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    : ""
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -28,11 +155,11 @@ export default function ProfilePage() {
             <CardContent className="space-y-6">
               <div className="flex flex-col items-center text-center">
                 <Avatar className="h-24 w-24 border-4 border-primary/10">
-                  <AvatarImage src="/placeholder.svg?height=96&width=96" alt="James Anderson" />
-                  <AvatarFallback className="bg-primary/10 text-2xl text-primary">JA</AvatarFallback>
+                  <AvatarImage src={profileImageUrl || undefined} alt={fullName} />
+                  <AvatarFallback className="bg-primary/10 text-2xl text-primary">{initials}</AvatarFallback>
                 </Avatar>
-                <h3 className="mt-4 text-xl font-semibold">James Anderson</h3>
-                <p className="text-sm text-muted-foreground">Software Engineer</p>
+                <h3 className="mt-4 text-xl font-semibold">{fullName}</h3>
+                <p className="text-sm text-muted-foreground">{jobTitle || "No title set"}</p>
                 <Button variant="outline" size="sm" className="mt-4 bg-transparent">
                   Change Photo
                 </Button>
@@ -41,20 +168,22 @@ export default function ProfilePage() {
               <div className="space-y-3 border-t pt-4">
                 <div className="flex items-center gap-3 text-sm">
                   <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span>james.anderson@email.com</span>
+                  <span>{email || "—"}</span>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span>San Francisco, CA</span>
+                  <span>{location || "—"}</span>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
                   <Briefcase className="h-4 w-4 text-muted-foreground" />
-                  <span>5 years experience</span>
+                  <span>{jobTitle || "—"}</span>
                 </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span>Joined March 2024</span>
-                </div>
+                {joinedDate && (
+                  <div className="flex items-center gap-3 text-sm">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span>Joined {joinedDate}</span>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2 border-t pt-4">
@@ -78,37 +207,37 @@ export default function ProfilePage() {
               <CardDescription>Update your personal details and bio</CardDescription>
             </CardHeader>
             <CardContent>
-              <form className="space-y-6">
+              <form className="space-y-6" onSubmit={handleSave}>
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" defaultValue="James" />
+                    <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" defaultValue="Anderson" />
+                    <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue="james.anderson@email.com" />
+                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone Number</Label>
-                    <Input id="phone" type="tel" defaultValue="+1 (555) 123-4567" />
+                    <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="location">Location</Label>
-                    <Input id="location" defaultValue="San Francisco, CA" />
+                    <Input id="location" value={location} onChange={(e) => setLocation(e.target.value)} />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="jobTitle">Job Title</Label>
-                  <Input id="jobTitle" defaultValue="Software Engineer" />
+                  <Input id="jobTitle" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
                 </div>
 
                 <div className="space-y-2">
@@ -116,13 +245,19 @@ export default function ProfilePage() {
                   <Textarea
                     id="bio"
                     rows={4}
-                    defaultValue="Passionate software engineer with 5 years of experience in full-stack development. Currently preparing for senior engineering roles at top tech companies."
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
                   />
                 </div>
 
                 <div className="flex justify-end gap-3">
-                  <Button variant="outline">Cancel</Button>
-                  <Button>Save Changes</Button>
+                  <Button type="button" variant="outline" onClick={handleCancel}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={saving}>
+                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {saving ? "Saving…" : "Save Changes"}
+                  </Button>
                 </div>
               </form>
             </CardContent>
@@ -132,8 +267,8 @@ export default function ProfilePage() {
         {/* Skills & Interests */}
         <Card>
           <CardHeader>
-            <CardTitle>Skills & Interests</CardTitle>
-            <CardDescription>Areas you're focusing on for interview preparation</CardDescription>
+            <CardTitle>Skills &amp; Interests</CardTitle>
+            <CardDescription>Areas you&apos;re focusing on for interview preparation</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
