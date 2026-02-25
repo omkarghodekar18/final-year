@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Home, Video, BarChart3, User, Settings } from "lucide-react";
+import { Home, Video, BarChart3, Briefcase, User, Settings } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -11,6 +11,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/dashboard/interviews", label: "Interviews", icon: Video },
   { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/dashboard/jobs", label: "Jobs", icon: Briefcase },
   { href: "/dashboard/profile", label: "Profile", icon: User },
   // { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];

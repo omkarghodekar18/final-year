@@ -16,7 +16,9 @@ import {
   Star,
   Search,
   SlidersHorizontal,
+  Briefcase,
 } from "lucide-react";
+import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart,
@@ -92,24 +94,39 @@ export default function DashboardClient() {
         <TabsContent value="all" className="space-y-8">
           {/* Tool Cards */}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <Card className="transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-pink-100">
-                  <Users className="h-6 w-6 text-pink-600" />
-                </div>
-                <CardTitle className="text-xl">Mock Interview</CardTitle>
-                {/* <div className="flex items-center gap-1 text-sm">
-                  <Star className="h-4 w-4 fill-orange-400 text-orange-400" />
-                  <span className="font-semibold">4.8</span>
-                </div> */}
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  Practice real interview questions with AI. Build confidence
-                  and improve your answers with instant feedback.
-                </p>
-              </CardContent>
-            </Card>
+            <Link href="/dashboard/interviews" className="group block">
+              <Card className="h-full cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-pink-400/40 group-hover:border-pink-400/40">
+                <CardHeader>
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-pink-100 transition-transform group-hover:scale-110">
+                    <Users className="h-6 w-6 text-pink-600" />
+                  </div>
+                  <CardTitle className="text-xl">Mock Interview</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    Practice real interview questions with AI. Build confidence
+                    and improve your answers with instant feedback.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/dashboard/jobs" className="group block">
+              <Card className="h-full cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-emerald-400/40 group-hover:border-emerald-400/40">
+                <CardHeader>
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 transition-transform group-hover:scale-110">
+                    <Briefcase className="h-6 w-6 text-emerald-600" />
+                  </div>
+                  <CardTitle className="text-xl">Jobs</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    Browse AI-matched job recommendations tailored to your
+                    resume and skill set.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
 
             <Card className="transition-shadow hover:shadow-lg">
               <CardHeader>
@@ -117,10 +134,6 @@ export default function DashboardClient() {
                   <FileText className="h-6 w-6 text-blue-600" />
                 </div>
                 <CardTitle className="text-xl">Upskilling</CardTitle>
-                {/* <div className="flex items-center gap-1 text-sm">
-                  <Star className="h-4 w-4 fill-orange-400 text-orange-400" />
-                  <span className="font-semibold">4.9</span>
-                </div> */}
               </CardHeader>
               <CardContent>
                 <p className="text-sm leading-relaxed text-muted-foreground">

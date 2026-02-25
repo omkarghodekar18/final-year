@@ -6,6 +6,8 @@ import Link from "next/link"
 import {
   Card,
   CardContent,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -13,11 +15,11 @@ import {
   Briefcase,
   Building2,
   MapPin,
+  ExternalLink,
   FileUp,
   Loader2,
   TrendingUp,
   Clock,
-  PlayCircle,
 } from "lucide-react"
 
 const API_BASE = "http://localhost:5000"
@@ -36,7 +38,7 @@ interface Job {
   missing_skills?: string[]
 }
 
-export default function InterviewsPage() {
+export default function JobsPage() {
   const { getToken } = useAuth()
   const [loading, setLoading] = useState(true)
   const [hasResume, setHasResume] = useState(false)
@@ -57,12 +59,12 @@ export default function InterviewsPage() {
       })
       if (!res.ok) throw new Error("Failed to load jobs")
       const data = await res.json()
-
+      
       setHasResume(data.has_resume)
       if (pageNum === 1) {
         setJobs(data.jobs || [])
       } else {
-        setJobs((prev) => [...prev, ...(data.jobs || [])])
+        setJobs(prev => [...prev, ...(data.jobs || [])])
       }
       setHasMore(data.has_more || false)
       setPage(pageNum)
@@ -80,7 +82,7 @@ export default function InterviewsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── Loading ───────────────────────────────────────────────────────────────
+  // ── Loading state ────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -89,7 +91,7 @@ export default function InterviewsPage() {
     )
   }
 
-  // ── Error ─────────────────────────────────────────────────────────────────
+  // ── Error state ──────────────────────────────────────────────────────────
   if (error) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -98,17 +100,17 @@ export default function InterviewsPage() {
     )
   }
 
-  // ── No resume ─────────────────────────────────────────────────────────────
+  // ── No resume uploaded ───────────────────────────────────────────────────
   if (!hasResume) {
     return (
       <div className="min-h-screen bg-background p-8">
         <div className="mx-auto max-w-3xl">
           <div className="mb-8">
             <h1 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
-              Interview Prep
+              Job Recommendations
             </h1>
             <p className="text-muted-foreground">
-              Practice AI-powered mock interviews tailored to your matched jobs
+              Personalized jobs matched to your resume
             </p>
           </div>
 
@@ -117,15 +119,18 @@ export default function InterviewsPage() {
               <div className="mb-4 rounded-full bg-primary/10 p-4">
                 <FileUp className="h-10 w-10 text-primary" />
               </div>
-              <h2 className="mb-2 text-xl font-semibold">Upload Your Resume First</h2>
+              <h2 className="mb-2 text-xl font-semibold">
+                Upload Your Resume First
+              </h2>
               <p className="mb-6 max-w-md text-sm text-muted-foreground">
-                To get job-specific interview questions, upload your resume so we can match
-                you with the best opportunities.
+                To see personalized job recommendations, you need to upload your
+                resume. We'll match your skills and experience with the best
+                opportunities.
               </p>
               <Button asChild>
                 <Link href="/dashboard/profile">
                   <FileUp className="mr-2 h-4 w-4" />
-                  Go to Profile &amp; Upload Resume
+                  Go to Profile & Upload Resume
                 </Link>
               </Button>
             </CardContent>
@@ -135,17 +140,17 @@ export default function InterviewsPage() {
     )
   }
 
-  // ── Job list ──────────────────────────────────────────────────────────────
+  // ── Jobs list ────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="mx-auto max-w-5xl">
         {/* Header */}
         <div className="mb-8">
           <h1 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
-            Interview Prep
+            Job Recommendations
           </h1>
           <p className="text-muted-foreground">
-            Practice mock interviews for your top {jobs.length} matched jobs
+            Top {jobs.length} jobs matched to your resume
           </p>
         </div>
 
@@ -153,7 +158,7 @@ export default function InterviewsPage() {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <Briefcase className="mb-4 h-10 w-10 text-muted-foreground" />
-              <h2 className="mb-2 text-lg font-semibold">No Matched Jobs Yet</h2>
+              <h2 className="mb-2 text-lg font-semibold">No Jobs Available</h2>
               <p className="text-sm text-muted-foreground">
                 We're fetching fresh jobs. Check back soon!
               </p>
@@ -198,10 +203,10 @@ export default function InterviewsPage() {
                             {job.posted_at && (
                               <span className="flex items-center gap-1">
                                 <Clock className="h-3.5 w-3.5" />
-                                {new Date(job.posted_at).toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                })}
+                                {new Date(job.posted_at).toLocaleDateString(
+                                  "en-US",
+                                  { month: "short", day: "numeric" }
+                                )}
                               </span>
                             )}
                           </div>
@@ -234,16 +239,10 @@ export default function InterviewsPage() {
 
                         {job.missing_skills && job.missing_skills.length > 0 && (
                           <div className="space-y-1.5">
-                            <p className="text-xs font-medium text-muted-foreground">
-                              Skills to add to improve match:
-                            </p>
+                            <p className="text-xs font-medium text-muted-foreground">Skills to add to improve match:</p>
                             <div className="flex flex-wrap gap-1.5">
                               {job.missing_skills.map((skill, i) => (
-                                <Badge
-                                  key={i}
-                                  variant="outline"
-                                  className="text-[10px] bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20 shadow-sm transition-colors hover:bg-orange-500/20"
-                                >
+                                <Badge key={i} variant="outline" className="text-[10px] bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20 shadow-sm transition-colors hover:bg-orange-500/20">
                                   + {skill}
                                 </Badge>
                               ))}
@@ -253,18 +252,24 @@ export default function InterviewsPage() {
                       </div>
                     </div>
 
-                    {/* Right – Start Interview button */}
+                    {/* Right – Apply button */}
                     <div className="shrink-0">
-                      <Button
-                        size="sm"
-                        className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-sm"
-                        asChild
-                      >
-                        <Link href={`/dashboard/interviews/${job.job_id}`}>
-                          <PlayCircle className="h-3.5 w-3.5" />
-                          Start Interview
-                        </Link>
-                      </Button>
+                      {job.apply_link ? (
+                        <Button
+                          size="sm"
+                          className="gap-2"
+                          onClick={() =>
+                            window.open(job.apply_link, "_blank")
+                          }
+                        >
+                          Apply
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="secondary" disabled>
+                          No Link
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -273,7 +278,7 @@ export default function InterviewsPage() {
           </div>
         )}
 
-        {/* Load More */}
+        {/* Load More Button */}
         {jobs.length > 0 && hasMore && (
           <div className="mt-8 flex justify-center">
             <Button
