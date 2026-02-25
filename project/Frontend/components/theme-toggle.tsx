@@ -13,17 +13,18 @@ export function ThemeToggle() {
     setMounted(true)
   }, [])
 
-  if (!mounted) {
-    return (
-      <Button variant="ghost" size="icon">
-        <Sun className="h-5 w-5" />
-      </Button>
-    )
-  }
-
   return (
-    <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-      {theme === "dark" ? <Sun className="h-5 w-5 transition-all" /> : <Moon className="h-5 w-5 transition-all" />}
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={mounted ? () => setTheme(theme === "dark" ? "light" : "dark") : undefined}
+      suppressHydrationWarning
+    >
+      {mounted && theme === "dark" ? (
+        <Sun className="h-5 w-5 transition-all" />
+      ) : (
+        <Moon className="h-5 w-5 transition-all" />
+      )}
       <span className="sr-only">Toggle theme</span>
     </Button>
   )
