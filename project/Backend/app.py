@@ -4,17 +4,20 @@ from utils.nlp import get_skill_extractor
 from flask import Flask, jsonify, g, request
 from flask_cors import CORS
 from dotenv import load_dotenv
+from utils.scheduler import start_scheduler
 import cloudinary
 import cloudinary.uploader
 from pdfminer.high_level import extract_text
-
 from auth import require_auth
 from models.user import (
     upsert_user, get_user_by_clerk_id, update_user_profile,
     ensure_indexes, update_user_resume, get_user_resume_public_id,
 )
 from utils.embedding import generate_embedding
-from utils.qdrant_store import upsert_resume_vector, ensure_collections
+from utils.qdrant_store import (
+    upsert_resume_vector, ensure_collections,
+    get_resume_embedding, search_similar_jobs,
+)
 
 load_dotenv()
 
@@ -52,10 +55,113 @@ with app.app_context():
     except Exception as e:
         print(f"⚠ Qdrant collection setup failed (is Qdrant reachable?): {e}")
 
+# ── Start background job-fetch scheduler (runs at midnight in a daemon thread) ──
+start_scheduler()
+
 
 @app.route("/", methods=["GET"])
 def hello_world():
-    return {"message": "Hello, World!"}
+    return "hello world"
+
+
+@app.route("/api/jobs", methods=["GET"])
+@require_auth
+def get_matched_jobs():
+    """Return top 10 jobs matched to the user's resume embedding.
+    If the user hasn't uploaded a resume yet, return has_resume=false."""
+    clerk_id = g.user.get("sub")
+    user = get_user_by_clerk_id(clerk_id)
+
+    try:
+        page = int(request.args.get("page", 1))
+        limit = int(request.args.get("limit", 10))
+    except ValueError:
+        page = 1
+        limit = 10
+
+    offset = (page - 1) * limit
+
+    if not user or not user.get("resume_url"):
+        return jsonify({"has_resume": False, "jobs": [], "page": page, "has_more": False})
+
+    # Retrieve the resume embedding from Qdrant
+    embedding = get_resume_embedding(clerk_id)
+    if not embedding:
+        return jsonify({"has_resume": True, "jobs": [], "page": page, "has_more": False})
+
+    # Find similar jobs in Qdrant.
+    # Fetch up to (offset + limit + 1) from the top, then slice the page.
+    # This avoids Qdrant's offset capping issue where it silently returns fewer results.
+    fetch_count = offset + limit + 1
+    all_matches = search_similar_jobs(embedding, limit=fetch_count)
+    
+    page_matches = all_matches[offset:offset + limit]
+    has_more = len(all_matches) > offset + limit
+    matches = page_matches
+
+    # Look up full metadata from MongoDB
+    from database import get_db
+    jobs_col = get_db()["jobs"]
+
+    results = []
+    
+    # User's current skills to compute missing skills
+    user_skills_set = set(user.get("skills", []))
+    
+    for match in matches:
+        job_id = match.payload.get("job_id")
+        if not job_id:
+            continue
+        job_doc = jobs_col.find_one({"job_id": job_id})
+        if not job_doc:
+            continue
+            
+        full_desc = job_doc.get("description", "")
+        
+        # Calculate missing skills
+        missing_skills = []
+        job_skills = job_doc.get("skills")
+        
+        if job_skills is not None:
+            # New format: skills are pre-computed in MongoDB
+            job_skills_set = set(job_skills)
+            missing_skills = sorted(list(job_skills_set - user_skills_set))
+        elif skill_extractor and full_desc:
+            # Fallback for old jobs without 'skills' field
+            try:
+                annotations = skill_extractor.annotate(full_desc)
+                full_matches = annotations.get("results", {}).get("full_matches", [])
+                ngram_matches = annotations.get("results", {}).get("ngram_scored", [])
+                job_skills_set = set(
+                    [s["doc_node_value"] for s in full_matches] +
+                    [s["doc_node_value"] for s in ngram_matches]
+                )
+                
+                # Missing skills = skills needed for job - user's existing skills
+                missing_skills = sorted(list(job_skills_set - user_skills_set))
+            except Exception as e:
+                print(f"Error extracting skills for job {job_id}: {e}")
+                
+        results.append({
+            "job_id": job_id,
+            "title": job_doc.get("title"),
+            "company": job_doc.get("company"),
+            "location": job_doc.get("location"),
+            "country": job_doc.get("country"),
+            "description": full_desc[:300],
+            "apply_link": job_doc.get("apply_link"),
+            "employment_type": job_doc.get("employment_type"),
+            "posted_at": job_doc.get("posted_at"),
+            "match_score": round(match.score * 100, 1),
+            "missing_skills": missing_skills[:7],  # Suggest up to 7 missing skills
+        })
+
+    return jsonify({
+        "has_resume": True,
+        "jobs": results,
+        "page": page,
+        "has_more": has_more,
+    })
 
 
 @app.route("/api/auth/sync", methods=["POST"])

@@ -11,3 +11,4 @@ spacy~=3.8.11
 cloudinary~=1.41.0
 sentence-transformers~=3.4.1
 qdrant-client~=1.13.3
+APScheduler~=3.10.4

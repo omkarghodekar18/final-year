@@ -71,15 +71,52 @@ def upsert_job_vector(job_id: str, embedding: list[float], title: str = ""):
     )
 
 
-def search_similar_jobs(embedding: list[float], limit: int = 10):
-    """Find jobs most similar to the given embedding vector."""
+def get_resume_embedding(clerk_id: str) -> list[float] | None:
+    """Retrieve a user's resume embedding from Qdrant. Returns None if not found."""
     client = get_qdrant()
-    results = client.query_points(
+    point_id = _stable_int_id(clerk_id)
+    try:
+        points = client.retrieve(
+            collection_name="resumes",
+            ids=[point_id],
+            with_vectors=True,
+        )
+        if points:
+            return points[0].vector
+    except Exception:
+        pass
+    return None
+
+
+def flush_all_jobs():
+    """Delete ALL points from the jobs collection (used before a fresh fetch)."""
+    client = get_qdrant()
+    # Recreate the collection to clear all points efficiently
+    if client.collection_exists("jobs"):
+        client.delete_collection("jobs")
+    client.create_collection(
         collection_name="jobs",
-        query=embedding,
+        vectors_config=VectorParams(
+            size=EMBEDDING_DIM,
+            distance=Distance.COSINE,
+        ),
+    )
+    print("  Flushed Qdrant 'jobs' collection")
+
+
+def search_similar_jobs(embedding: list[float], limit: int = 10):
+    """Find jobs most similar to the given embedding vector.
+    
+    Always searches from offset=0. Pagination is handled in the caller
+    by slicing the returned list, which avoids Qdrant's offset-capping issue.
+    """
+    client = get_qdrant()
+    results = client.search(
+        collection_name="jobs",
+        query_vector=embedding,
         limit=limit,
     )
-    return results.points
+    return results
 
 
 def _stable_int_id(string_id: str) -> int:
