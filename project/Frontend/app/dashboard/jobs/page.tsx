@@ -177,7 +177,7 @@ export default function JobsPage() {
                     <div className="min-w-0 flex-1 space-y-3">
                       <div className="flex items-start gap-3">
                         {/* Rank badge */}
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-xs font-bold text-white shadow-sm">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-xs font-bold text-foreground">
                           {index + 1}
                         </div>
 
@@ -257,7 +257,8 @@ export default function JobsPage() {
                       {job.apply_link ? (
                         <Button
                           size="sm"
-                          className="gap-2"
+                          variant="outline"
+                          className="gap-2 border-violet-500/50 text-violet-600 hover:bg-violet-500/10 hover:text-violet-700 dark:border-violet-400/50 dark:text-violet-400 dark:hover:bg-violet-400/10 dark:hover:text-violet-300 shadow-sm"
                           onClick={() =>
                             window.open(job.apply_link, "_blank")
                           }

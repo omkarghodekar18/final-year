@@ -36,17 +36,8 @@ export default function LandingPage() {
               Ace Your Interviews with AI
             </h1>
             <p className="max-w-2xl text-balance text-lg text-muted-foreground md:text-xl">
-              Practice with AI-powered mock interviews, get real-time feedback,
-              and track your progress. Build confidence and land your dream job.
+              Practice interviews with a real-time AI interviewer, discover jobs matched to your resume, and close your skill gaps — all in one place.
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              <Button size="lg" asChild>
-                <Link href="/signup">Get Started</Link>
-              </Button>
-              <Button size="lg" variant="outline" asChild>
-                <Link href="/demo">Try Demo</Link>
-              </Button>
-            </div>
           </div>
           <div className="mt-8 w-full max-w-5xl">
             <div className="relative aspect-video overflow-hidden rounded-xl border border-border bg-muted/50">
@@ -146,69 +137,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Testimonials Section */}
-        <section
-          id="testimonials"
-          className="border-y border-border/40 bg-muted/30 py-24"
-        >
-          <div className="mx-auto w-full max-w-7xl px-6">
-            <div className="mb-16 flex flex-col items-center gap-4 text-center">
-              <Badge variant="secondary">Testimonials</Badge>
-              <h2 className="text-balance text-4xl font-bold tracking-tight md:text-5xl">
-                Loved by job seekers
-              </h2>
-            </div>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {[
-                {
-                  name: "Sarah Chen",
-                  role: "Software Engineer at Google",
-                  content:
-                    "SkillsBridge helped me prepare for my Google interview. The AI feedback was incredibly accurate and helped me improve my communication skills.",
-                },
-                {
-                  name: "Michael Rodriguez",
-                  role: "Product Manager at Meta",
-                  content:
-                    "The behavioral interview practice was a game-changer. I felt so much more confident going into my actual interviews.",
-                },
-                {
-                  name: "Emily Watson",
-                  role: "Data Scientist at Amazon",
-                  content:
-                    "The analytics dashboard showed me exactly where I needed to improve. I landed my dream job within 2 months!",
-                },
-              ].map((testimonial, i) => (
-                <Card key={i} className="border-border/50">
-                  <CardHeader>
-                    <div className="mb-4 flex items-center gap-1">
-                      {[...Array(5)].map((_, i) => (
-                        <svg
-                          key={i}
-                          className="h-4 w-4 fill-primary text-primary"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                        </svg>
-                      ))}
-                    </div>
-                    <CardDescription className="text-base leading-relaxed">
-                      {testimonial.content}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div>
-                      <p className="font-semibold">{testimonial.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {testimonial.role}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
+
 
         {/* Pricing Section */}
         {/* <section id="pricing" className="mx-auto w-full max-w-7xl px-6 py-24">

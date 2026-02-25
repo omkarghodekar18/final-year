@@ -8,7 +8,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Users,
   FileText,
@@ -44,15 +43,18 @@ export default function DashboardClient() {
     <main className="min-h-screen bg-background p-8">
       {/* Hero Section */}
       <div className="mb-8 text-center">
-        <Badge className="mb-4 bg-gradient-to-r from-yellow-400 to-orange-400 text-white hover:from-yellow-500 hover:to-orange-700">
-          Get Early Access
-        </Badge>
+        <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-purple-500/40 bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-500 dark:border-purple-400/40 dark:bg-purple-400/10 dark:text-purple-400">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-purple-500 opacity-75 dark:bg-purple-400" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-purple-500 dark:bg-purple-400" />
+          </span>
+          Now in Early Access
+        </span>
         <h1 className="mb-3 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-4xl font-bold text-transparent">
-          Ace Your Interviews with AI
+          Land Your Dream Job with AI
         </h1>
         <p className="mx-auto max-w-2xl text-balance text-muted-foreground">
-          Smart, task focused AI tools designed to boost productivity,
-          streamline writing and support your academic and professional goals.
+          Practice interviews with a real-time AI interviewer, discover jobs matched to your resume, and close your skill gaps — all in one place.
         </p>
       </div>
 

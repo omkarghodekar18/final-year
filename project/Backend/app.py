@@ -1,5 +1,6 @@
 import os
 import uuid
+import requests
 from utils.nlp import get_skill_extractor
 from flask import Flask, jsonify, g, request
 from flask_cors import CORS
@@ -326,6 +327,40 @@ def tts_speak():
     except Exception as e:
         print(f"TTS error: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+# ── OpenRouter Generate Questions ────────────────────────────────────────────
+@app.route('/api/ask', methods=['POST'])
+@require_auth
+def ask_gemma():
+    data = request.get_json(silent=True) or {}
+    resume = data.get('resume', '')
+    jd = data.get('jd', '')
+
+    prompt = f"Analyze this Resume against the JD and generate 5 interview questions.\n\nJD: {jd}\n\nResume: {resume}"
+
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+    if not OPENROUTER_API_KEY:
+        return jsonify({"error": "OPENROUTER_API_KEY not configured"}), 500
+
+    response = requests.post(
+        url="https://openrouter.ai/api/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        },
+        json={
+            "model": "google/gemma-3-4b-it:free", # Using the FREE version
+            "messages": [
+                {"role": "system", "content": "You are an expert HR recruiter."},
+                {"role": "user", "content": prompt}
+            ]
+        }
+    )
+
+    if response.status_code == 200:
+        return jsonify(response.json()['choices'][0]['message']['content'])
+    else:
+        return jsonify({"error": "API Error", "details": response.text}), response.status_code
 
 
 if __name__ == "__main__":
