@@ -11,11 +11,8 @@ import { Button } from "@/components/ui/button";
 import {
   Users,
   FileText,
-  PenTool,
-  Star,
-  Search,
-  SlidersHorizontal,
   Briefcase,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -113,6 +110,23 @@ export default function DashboardClient() {
               </Card>
             </Link>
 
+            <Link href="/dashboard/analytics" className="group block">
+              <Card className="h-full cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-amber-400/40 group-hover:border-amber-400/40">
+                <CardHeader>
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 transition-transform group-hover:scale-110">
+                    <BarChart3 className="h-6 w-6 text-amber-600" />
+                  </div>
+                  <CardTitle className="text-xl">AI Feedback</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    Review AI-generated feedback from your past interviews with
+                    strengths and areas to improve.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+
             <Link href="/dashboard/jobs" className="group block">
               <Card className="h-full cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-emerald-400/40 group-hover:border-emerald-400/40">
                 <CardHeader>
@@ -130,20 +144,22 @@ export default function DashboardClient() {
               </Card>
             </Link>
 
-            <Card className="transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
-                  <FileText className="h-6 w-6 text-blue-600" />
-                </div>
-                <CardTitle className="text-xl">Upskilling</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  Identify skill gaps based on job trends and receive
-                  personalized learning paths.
-                </p>
-              </CardContent>
-            </Card>
+            <Link href="/dashboard/upskilling" className="group block">
+              <Card className="h-full cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-blue-400/40 group-hover:border-blue-400/40">
+                <CardHeader>
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 transition-transform group-hover:scale-110">
+                    <FileText className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <CardTitle className="text-xl">Upskilling</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    Identify skill gaps based on job trends and receive
+                    personalized learning paths.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
 
             {/* <Card className="transition-shadow hover:shadow-lg">
               <CardHeader>
