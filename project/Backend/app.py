@@ -1,6 +1,7 @@
 import os
 import uuid
 import json
+import re
 import requests
 from urllib.parse import unquote
 from utils.nlp import get_skill_extractor
@@ -50,7 +51,14 @@ cloudinary.config(
     secure=True,
 )
 
-skill_extractor = get_skill_extractor()
+# SkillNer is lazy-loaded on first use (it's slow to initialize)
+_skill_extractor = None
+
+def get_extractor():
+    global _skill_extractor
+    if _skill_extractor is None:
+        _skill_extractor = get_skill_extractor()
+    return _skill_extractor
 
 # Create MongoDB indexes and Qdrant collections on startup
 with app.app_context():
@@ -134,19 +142,19 @@ def get_matched_jobs():
             # New format: skills are pre-computed in MongoDB
             job_skills_set = set(job_skills)
             missing_skills = sorted(list(job_skills_set - user_skills_set))
-        elif skill_extractor and full_desc:
+        elif full_desc:
             # Fallback for old jobs without 'skills' field
             try:
-                annotations = skill_extractor.annotate(full_desc)
-                full_matches = annotations.get("results", {}).get("full_matches", [])
-                ngram_matches = annotations.get("results", {}).get("ngram_scored", [])
-                job_skills_set = set(
-                    [s["doc_node_value"] for s in full_matches] +
-                    [s["doc_node_value"] for s in ngram_matches]
-                )
-                
-                # Missing skills = skills needed for job - user's existing skills
-                missing_skills = sorted(list(job_skills_set - user_skills_set))
+                extractor = get_extractor()
+                if extractor:
+                    annotations = extractor.annotate(full_desc)
+                    full_matches = annotations.get("results", {}).get("full_matches", [])
+                    ngram_matches = annotations.get("results", {}).get("ngram_scored", [])
+                    job_skills_set = set(
+                        [s["doc_node_value"] for s in full_matches] +
+                        [s["doc_node_value"] for s in ngram_matches]
+                    )
+                    missing_skills = sorted(list(job_skills_set - user_skills_set))
             except Exception:
                 pass
                 
@@ -228,6 +236,7 @@ def update_me():
 @require_auth
 def parse_resume():
     """Accept a PDF resume, extract skills, upload to Cloudinary, and persist."""
+    skill_extractor = get_extractor()
     if skill_extractor is None:
         return jsonify({"error": "Resume parsing is not available. Run setup_dependencies.py first."}), 503
 
@@ -306,7 +315,7 @@ def parse_resume():
 # ── Text-to-Speech ───────────────────────────────────────────────────────────
 @app.route("/api/tts/speak", methods=["POST", "OPTIONS"])
 def tts_speak():
-    """POST {"text": "..."} → streams a WAV audio file."""
+    """POST {"text": "..."} → streams MP3 audio bytes."""
     if request.method == "OPTIONS":
         return "", 204
 
@@ -328,109 +337,129 @@ def tts_speak():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+FREE_MODELS = [
+    "google/gemma-3-4b-it:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "deepseek/deepseek-chat-v3-0324:free",
+    "mistralai/mistral-small-3.1-24b-instruct:free",
+]
 
-# ── OpenRouter Generate Questions ────────────────────────────────────────────
+# ── OpenRouter Generate Interview Questions ────────────────────────────────
 @app.route('/api/ask', methods=['POST', 'OPTIONS'])
 @require_auth
 def ask_gemma():
-    if request.method == 'OPTIONS':
+    # ── CORS preflight ─────────────────────────────────────────────────────
+    if request.method == "OPTIONS":
         return "", 204
 
     data = request.get_json(silent=True) or {}
-    raw_job_id = data.get('job_id')
+    raw_job_id = data.get("job_id")
+
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+    if not OPENROUTER_API_KEY:
+        return jsonify({"error": "OPENROUTER_API_KEY not configured"}), 500
 
     job_id = unquote(raw_job_id) if raw_job_id else None
-
     if not job_id:
         return jsonify({"error": "job_id is required"}), 400
 
-    # 1. Fetch User Profile & Skills
+    # ── Fetch User ─────────────────────────────────────────────────────────
     clerk_id = g.user.get("sub")
     user = get_user_by_clerk_id(clerk_id)
     if not user:
         return jsonify({"error": "User not found"}), 404
 
     skills = user.get("skills", [])
-    resume_context = f"Candidate Skills: {', '.join(skills)}"
+    resume_context = ", ".join(skills) if skills else "No skills listed"
 
-    # 2. Fetch Job Description from DB
+    # ── Fetch Job ──────────────────────────────────────────────────────────
     jobs_col = get_db()["jobs"]
     job_doc = jobs_col.find_one({"job_id": job_id})
-
     if not job_doc:
         try:
             job_doc = jobs_col.find_one({"_id": ObjectId(job_id)})
         except InvalidId:
             pass
-
     if not job_doc:
         return jsonify({"error": "Job not found"}), 404
 
-    jd = job_doc.get("description", "")
     job_title = job_doc.get("title", "this role")
+    jd = job_doc.get("description", "")[:4000]
 
-    # 3. Construct Prompt
-    prompt = f"""Analyze this candidate's profile against the Job Description and generate exactly 5 relevant interview questions for the role of {job_title}.
-Return the output strictly as a JSON array of strings, with no markdown formatting and no extra text.
-Example format:
+    # ── Prompt ─────────────────────────────────────────────────────────────
+    prompt = f"""You are a senior technical interviewer conducting a mock interview.
+
+TASK: Generate EXACTLY 5 realistic interview questions.
+
+RULES:
+- Role: {job_title}
+- Use job requirements
+- Adapt difficulty to candidate skills
+- Include: 2 technical, 1 problem-solving, 1 scenario, 1 behavioral
+- Avoid generic textbook questions
+- Sound like a real interviewer
+- DO NOT explain anything
+- OUTPUT ONLY VALID JSON
+
+OUTPUT FORMAT:
 ["Question 1?", "Question 2?", "Question 3?", "Question 4?", "Question 5?"]
 
-Job Description:
+JOB DESCRIPTION:
 {jd}
 
-Candidate Profile:
+CANDIDATE SKILLS:
 {resume_context}"""
 
-    if not OPENROUTER_API_KEY:
-        return jsonify({"error": "OPENROUTER_API_KEY not configured"}), 500
+    # ── Call OpenRouter (try models in order, skip on 429) ─────────────────
+    last_error = None
+    for model in FREE_MODELS:
+        try:
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "HTTP-Referer": "http://localhost:3000",
+                    "X-Title": "SkillsBridge",
+                },
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.4,
+                },
+                timeout=30,
+            )
 
-    # Gemma: merge system instruction into user turn (no system role support)
-    messages = [
-        {
-            "role": "user",
-            "content": f"""You are an expert HR recruiter. Only output a valid JSON array of strings.\n\n{prompt}"""
-        }
-    ]
+            if response.status_code == 429:
+                last_error = "rate_limited"
+                continue  # try next model
 
-    try:
-        response = requests.post(
-            url="https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            data=json.dumps({
-                "model": "google/gemma-3-4b-it:free",
-                "messages": messages
-            }),
-            timeout=30
-        )
+            if response.status_code != 200:
+                last_error = response.text
+                continue  # try next model
 
-        if response.status_code == 429:
-            return jsonify({"error": "rate_limited", "message": "AI model is temporarily rate-limited."}), 503
+            content = response.json()["choices"][0]["message"]["content"].strip()
 
-        if response.status_code != 200:
-            return jsonify({"error": "API Error"}), 500
+            # ── Extract JSON array from response ───────────────────────────
+            match = re.search(r"\[.*\]", content, re.S)
+            if not match:
+                last_error = "No JSON array in AI response"
+                continue
 
-        content = response.json()['choices'][0]['message']['content'].strip()
-        if content.startswith("```json"):
-            content = content[7:]
-        if content.startswith("```"):
-            content = content[3:]
-        if content.endswith("```"):
-            content = content[:-3]
-        content = content.strip()
+            questions = json.loads(match.group())
+            if not isinstance(questions, list) or len(questions) == 0:
+                last_error = "Invalid question format"
+                continue
 
-        questions = json.loads(content)
-        if not isinstance(questions, list) or len(questions) == 0:
-            raise ValueError("AI did not return a valid list")
+            return jsonify({"questions": questions[:5]})
 
-        return jsonify({"questions": questions[:10]})
+        except Exception as e:
+            last_error = str(e)
+            continue
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    # All models exhausted
+    return jsonify({"error": "rate_limited", "message": last_error or "All models unavailable"}), 503
 
 
+# ── Run Server ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)
