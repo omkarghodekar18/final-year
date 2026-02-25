@@ -13,6 +13,21 @@ import {
   Home,
 } from "lucide-react"
 import Link from "next/link"
+import dynamic from "next/dynamic"
+
+// Dynamically import the 3D avatar (Canvas cannot SSR)
+const AIAvatar3D = dynamic(
+  () => import("@/components/interview/AIAvatar3D").then((m) => m.AIAvatar3D),
+  { ssr: false, loading: () => <AvatarPlaceholder /> }
+)
+
+function AvatarPlaceholder() {
+  return (
+    <div className="h-72 w-72 flex items-center justify-center rounded-full bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 opacity-60">
+      <span className="text-5xl">🤖</span>
+    </div>
+  )
+}
 
 // ── 10 Mock Interview Questions ───────────────────────────────────────────────
 const MOCK_QUESTIONS = [
@@ -38,55 +53,94 @@ interface Answer {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySpeechRecognition = any
 
+// Known male voice name fragments to skip when a female is available
+const MALE_VOICE_PATTERNS = /\b(Guy|David|Mark|James|Christopher|Richard|George|Ryan|Eric|Tom)\b/i
+
+// ── Find the best female, natural-sounding voice available ────────────────────
+function pickBestVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
+  // Microsoft Neural / Natural Windows voices – female priority list
+  const femaleOnline: Array<(v: SpeechSynthesisVoice) => boolean> = [
+    (v) => /Aria Online/i.test(v.name),           // best – very human female
+    (v) => /Jenny Online/i.test(v.name),
+    (v) => /Natasha Online/i.test(v.name),
+    (v) => /Eva Online/i.test(v.name),
+    (v) => /Emma Online/i.test(v.name),
+    (v) => /Natural/i.test(v.name) && v.lang.startsWith("en") && !MALE_VOICE_PATTERNS.test(v.name),
+    (v) => /Microsoft/i.test(v.name) && v.lang.startsWith("en") && !MALE_VOICE_PATTERNS.test(v.name),
+    (v) => /Zira/i.test(v.name),                  // local Windows female fallback
+    (v) => /Google/i.test(v.name) && v.lang === "en-US" && !MALE_VOICE_PATTERNS.test(v.name),
+    (v) => v.lang === "en-US" && !v.localService && !MALE_VOICE_PATTERNS.test(v.name),
+    (v) => v.lang === "en-US",
+    () => true,
+  ]
+  for (const test of femaleOnline) {
+    const match = voices.find(test)
+    if (match) return match
+  }
+  return voices[0]
+}
+
 export default function InterviewSessionPage() {
   const params = useParams()
-  const jobId = params?.id as string
 
-  const [phase, setPhase] = useState<Phase>("intro")
+  const [phase, setPhase]                 = useState<Phase>("intro")
   const [questionIndex, setQuestionIndex] = useState(0)
-  const [transcript, setTranscript] = useState("")
-  const [isMuted, setIsMuted] = useState(false)
-  const [answers, setAnswers] = useState<Answer[]>([])
+  const [transcript, setTranscript]       = useState("")
+  const [isMuted, setIsMuted]             = useState(false)
+  const [answers, setAnswers]             = useState<Answer[]>([])
   const [avatarSpeaking, setAvatarSpeaking] = useState(false)
   const [listeningActive, setListeningActive] = useState(false)
+  const [voicesReady, setVoicesReady]     = useState(false)
 
   const recognitionRef = useRef<AnySpeechRecognition>(null)
+  const bestVoiceRef   = useRef<SpeechSynthesisVoice | null>(null)
 
-  // ── TTS: AI speaks the question ───────────────────────────────────────────
+  // Pre-load and pick best voice as soon as voices are available
+  useEffect(() => {
+    const load = () => {
+      const voices = window.speechSynthesis.getVoices()
+      if (voices.length) {
+        bestVoiceRef.current = pickBestVoice(voices) ?? null
+        setVoicesReady(true)
+      }
+    }
+    load()
+    window.speechSynthesis.onvoiceschanged = load
+    return () => { window.speechSynthesis.onvoiceschanged = null }
+  }, [])
+
+  // ── TTS ───────────────────────────────────────────────────────────────────
   const speak = useCallback((text: string, onEnd?: () => void) => {
     if (!window.speechSynthesis) return
     window.speechSynthesis.cancel()
-    const utter = new SpeechSynthesisUtterance(text)
-    utter.lang = "en-US"
-    utter.rate = 0.95
-    utter.pitch = 1.1
-    const voices = window.speechSynthesis.getVoices()
-    const preferred =
-      voices.find((v) => v.lang === "en-US" && v.name.toLowerCase().includes("female")) ||
-      voices.find((v) => v.lang === "en-US") ||
-      voices[0]
-    if (preferred) utter.voice = preferred
+
+    const utter        = new SpeechSynthesisUtterance(text)
+    utter.lang         = "en-US"
+    utter.rate         = 0.88  // slightly slower – clearer, more natural
+    utter.pitch        = 1.1   // warmer feminine pitch
+    utter.volume       = 1
+
+    if (bestVoiceRef.current) utter.voice = bestVoiceRef.current
+
     utter.onstart = () => setAvatarSpeaking(true)
-    utter.onend = () => {
-      setAvatarSpeaking(false)
-      onEnd?.()
-    }
+    utter.onend   = () => { setAvatarSpeaking(false); onEnd?.() }
+    utter.onerror = () => { setAvatarSpeaking(false); onEnd?.() }
+
     window.speechSynthesis.speak(utter)
   }, [])
 
-  // ── STT: Listen to user's answer ─────────────────────────────────────────
+  // ── STT ───────────────────────────────────────────────────────────────────
   const startListening = useCallback(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SR) return
-    const recognition = new SR()
-    recognition.lang = "en-US"
-    recognition.continuous = true
+    const recognition          = new SR()
+    recognition.lang           = "en-US"
+    recognition.continuous     = true
     recognition.interimResults = true
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (e: any) => {
-      let final = ""
-      let interim = ""
+      let final = ""; let interim = ""
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript
         if (e.results[i].isFinal) final += t + " "
@@ -126,15 +180,15 @@ export default function InterviewSessionPage() {
 
   const handleNext = () => {
     stopListening()
-    const currentAnswer: Answer = {
+    const current: Answer = {
       question: MOCK_QUESTIONS[questionIndex],
       transcript: transcript.trim() || "(no answer recorded)",
     }
-    const updated = [...answers, currentAnswer]
+    const updated = [...answers, current]
     setAnswers(updated)
 
-    console.log(`\n📝 Q${questionIndex + 1}: ${currentAnswer.question}`)
-    console.log(`💬 Answer: ${currentAnswer.transcript}`)
+    console.log(`\n📝 Q${questionIndex + 1}: ${current.question}`)
+    console.log(`💬 Answer: ${current.transcript}`)
 
     if (questionIndex + 1 >= MOCK_QUESTIONS.length) {
       console.log("\n\n====== INTERVIEW COMPLETE ======")
@@ -168,7 +222,7 @@ export default function InterviewSessionPage() {
 
   const progress = Math.round((questionIndex / MOCK_QUESTIONS.length) * 100)
 
-  // ── DONE SCREEN ───────────────────────────────────────────────────────────
+  // ── DONE ─────────────────────────────────────────────────────────────────
   if (phase === "done") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
@@ -176,34 +230,26 @@ export default function InterviewSessionPage() {
           <div className="text-center space-y-2">
             <CheckCircle2 className="mx-auto h-14 w-14 text-green-500" />
             <h1 className="text-3xl font-bold">Interview Complete!</h1>
-            <p className="text-muted-foreground">
-              Great job! Here's a summary of your responses.
-            </p>
+            <p className="text-muted-foreground">Great job! Here's a summary of your responses.</p>
           </div>
 
-          <div className="space-y-4 rounded-xl border bg-card p-6">
+          <div className="space-y-4 rounded-xl border bg-card p-6 max-h-[60vh] overflow-y-auto">
             {answers.map((a, i) => (
               <div key={i} className="space-y-1 border-b pb-4 last:border-0 last:pb-0">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Q{i + 1}
-                </p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Q{i + 1}</p>
                 <p className="font-medium">{a.question}</p>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {a.transcript}
-                </p>
+                <p className="text-sm text-muted-foreground leading-relaxed">{a.transcript}</p>
               </div>
             ))}
           </div>
 
           <div className="flex gap-3 justify-center">
             <Button variant="outline" onClick={startInterview} className="gap-2">
-              <RotateCcw className="h-4 w-4" />
-              Retry
+              <RotateCcw className="h-4 w-4" /> Retry
             </Button>
             <Button asChild className="gap-2">
               <Link href="/dashboard/interviews">
-                <Home className="h-4 w-4" />
-                Back to Interviews
+                <Home className="h-4 w-4" /> Back to Interviews
               </Link>
             </Button>
           </div>
@@ -212,30 +258,27 @@ export default function InterviewSessionPage() {
     )
   }
 
-  // ── INTRO SCREEN ──────────────────────────────────────────────────────────
+  // ── INTRO ──────────────────────────────────────────────────────────────────
   if (phase === "intro") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
         <div className="w-full max-w-lg text-center space-y-8">
-          <div className="relative mx-auto flex h-40 w-40 items-center justify-center">
-            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 opacity-20 animate-ping" />
-            <div className="absolute inset-2 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 opacity-30" />
-            <div className="relative flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 shadow-2xl">
-              <span className="text-5xl select-none">🤖</span>
-            </div>
+          {/* 3D Avatar in dark card */}
+          <div className="w-full rounded-2xl overflow-hidden bg-gradient-to-b from-slate-900 to-slate-800 border border-slate-700 shadow-2xl">
+            <AIAvatar3D isSpeaking={false} />
           </div>
 
           <div className="space-y-3">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 bg-clip-text text-transparent">
               AI Mock Interview
             </h1>
             <p className="text-muted-foreground">
-              I'll ask you <strong>10 questions</strong>. Answer each one verbally —
-              your mic will be active during your turn.
+              I'll ask you <strong>10 questions</strong>. Speak your answers aloud —
+              they'll be transcribed and recorded in real time.
             </p>
             <div className="flex justify-center flex-wrap gap-2">
-              <Badge variant="secondary">🎙 Speak your answers</Badge>
-              <Badge variant="secondary">📝 Transcribed live</Badge>
+              <Badge variant="secondary">🎙 Voice answers</Badge>
+              <Badge variant="secondary">📝 Live transcript</Badge>
               <Badge variant="secondary">🤫 Your own pace</Badge>
             </div>
           </div>
@@ -243,9 +286,10 @@ export default function InterviewSessionPage() {
           <Button
             size="lg"
             onClick={startInterview}
+            disabled={!voicesReady}
             className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-10"
           >
-            Start Interview
+            {voicesReady ? "Start Interview" : "Loading voices…"}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -253,74 +297,71 @@ export default function InterviewSessionPage() {
     )
   }
 
-  // ── INTERVIEW SCREEN ──────────────────────────────────────────────────────
+  // ── INTERVIEW ─────────────────────────────────────────────────────────────
   return (
-    <div className="flex min-h-screen flex-col bg-background p-6">
+    <div className="flex min-h-screen flex-col bg-background">
       {/* Top bar */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="flex items-center justify-between px-6 pt-5 pb-3">
         <Link
           href="/dashboard/interviews"
           className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          onClick={() => {
-            window.speechSynthesis?.cancel()
-            recognitionRef.current?.abort()
-          }}
+          onClick={() => { window.speechSynthesis?.cancel(); recognitionRef.current?.abort() }}
         >
           ← Back
         </Link>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">
-            Question {questionIndex + 1} of {MOCK_QUESTIONS.length}
+            Question {questionIndex + 1} / {MOCK_QUESTIONS.length}
           </span>
-          <Badge variant={phase === "ai-speaking" ? "default" : "secondary"} className="text-xs">
-            {phase === "ai-speaking" ? "AI Speaking…" : "Your Turn"}
+          <Badge
+            variant={phase === "ai-speaking" ? "default" : "secondary"}
+            className="text-xs"
+          >
+            {phase === "ai-speaking" ? "🔊 AI Speaking…" : "🎙 Your Turn"}
           </Badge>
         </div>
       </div>
 
       {/* Progress bar */}
-      <div className="mb-8 h-1.5 w-full rounded-full bg-muted overflow-hidden">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-700"
-          style={{ width: `${progress}%` }}
-        />
+      <div className="px-6">
+        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 transition-all duration-700"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-10 max-w-2xl mx-auto w-full">
+      {/* Main layout – single vertical column */}
+      <div className="flex flex-1 flex-col items-center gap-5 p-4 max-w-2xl mx-auto w-full">
+
         {/* Avatar */}
-        <div className="relative flex h-44 w-44 items-center justify-center">
-          <div
-            className={`absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 ${
-              avatarSpeaking ? "opacity-30 scale-110 animate-pulse" : "opacity-10"
-            }`}
-          />
-          <div
-            className={`absolute inset-3 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 ${
-              avatarSpeaking ? "opacity-40 scale-105" : "opacity-20"
-            }`}
-          />
-          <div className="relative flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 shadow-2xl">
-            <span className="text-5xl select-none">🤖</span>
-          </div>
-          {avatarSpeaking && (
-            <div className="absolute -bottom-3 flex gap-1">
-              {[1, 2, 3, 4, 3, 2, 1].map((h, i) => (
-                <div
-                  key={i}
-                  className="w-1 rounded-full bg-purple-500 animate-pulse"
-                  style={{ height: `${h * 5}px`, animationDelay: `${i * 80}ms` }}
-                />
-              ))}
-            </div>
-          )}
+        <div className="w-full rounded-2xl overflow-hidden bg-gradient-to-b from-slate-900 to-slate-800 border border-slate-700 shadow-2xl">
+          <AIAvatar3D isSpeaking={avatarSpeaking} />
         </div>
 
+        {/* Speaking wave indicator */}
+        {avatarSpeaking && (
+          <div className="flex items-end gap-1 h-5">
+            {[2, 4, 6, 8, 6, 4, 2].map((h, i) => (
+              <div
+                key={i}
+                className="w-1.5 rounded-full bg-indigo-500 animate-pulse"
+                style={{ height: `${h * 3}px`, animationDelay: `${i * 70}ms` }}
+              />
+            ))}
+            <span className="text-xs text-indigo-400 ml-2 self-center">Speaking…</span>
+          </div>
+        )}
+
         {/* Question card */}
-        <div className="w-full rounded-2xl border bg-card p-6 text-center shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-            {phase === "ai-speaking" ? "Question" : "Your answer is being recorded…"}
+        <div className="w-full rounded-2xl border bg-card p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+            {phase === "ai-speaking" ? "Question" : "Speak your answer…"}
           </p>
-          <p className="text-xl font-semibold leading-snug">{MOCK_QUESTIONS[questionIndex]}</p>
+          <p className="text-lg font-semibold leading-snug">
+            {MOCK_QUESTIONS[questionIndex]}
+          </p>
         </div>
 
         {/* Live transcript */}
@@ -334,33 +375,31 @@ export default function InterviewSessionPage() {
             <p className="text-sm text-muted-foreground italic">
               {phase === "user-answering"
                 ? isMuted
-                  ? "Microphone muted. Unmute to answer."
+                  ? "Microphone muted — unmute to answer."
                   : "Listening… speak now."
-                : "Waiting for AI to finish speaking…"}
+                : "Waiting for AI to finish…"}
             </p>
           )}
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-4">
+        <div className="flex w-full items-center gap-4">
           <Button
             variant="outline"
             size="icon"
-            className="h-12 w-12 rounded-full"
+            className="h-12 w-12 rounded-full shrink-0"
             onClick={toggleMute}
             disabled={phase !== "user-answering"}
             title={isMuted ? "Unmute" : "Mute"}
           >
-            {isMuted ? (
-              <MicOff className="h-5 w-5 text-red-500" />
-            ) : (
-              <Mic className={`h-5 w-5 ${listeningActive ? "text-green-500" : ""}`} />
-            )}
+            {isMuted
+              ? <MicOff className="h-5 w-5 text-red-500" />
+              : <Mic className={`h-5 w-5 ${listeningActive ? "text-green-500" : ""}`} />}
           </Button>
 
           <Button
             size="lg"
-            className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8"
+            className="flex-1 gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
             onClick={handleNext}
             disabled={phase === "ai-speaking"}
           >
@@ -369,11 +408,11 @@ export default function InterviewSessionPage() {
           </Button>
         </div>
 
-        <p className="text-xs text-muted-foreground -mt-4">
+        <p className="text-xs text-muted-foreground text-center -mt-2">
           {listeningActive && !isMuted
-            ? "🔴 Recording — click Next when you're done answering"
+            ? "🔴 Recording — click Next when done"
             : phase === "ai-speaking"
-            ? "🔊 AI is speaking…"
+            ? "🔊 AI is speaking, please wait"
             : "—"}
         </p>
       </div>
