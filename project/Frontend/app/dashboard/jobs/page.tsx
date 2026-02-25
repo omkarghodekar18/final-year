@@ -22,7 +22,7 @@ import {
   Clock,
 } from "lucide-react"
 
-const API_BASE = "http://localhost:5000"
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
 
 interface Job {
   job_id: string
@@ -68,8 +68,7 @@ export default function JobsPage() {
       }
       setHasMore(data.has_more || false)
       setPage(pageNum)
-    } catch (err) {
-      console.error(err)
+    } catch {
       setError("Could not load job recommendations")
     } finally {
       if (pageNum === 1) setLoading(false)

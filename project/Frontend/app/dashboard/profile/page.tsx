@@ -15,7 +15,7 @@ import {
   Upload, FileText, CheckCircle2, XCircle, ExternalLink,
 } from "lucide-react"
 
-const API_BASE = "http://localhost:5000"
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
 
 interface UserProfile {
   first_name?: string
@@ -250,8 +250,7 @@ export default function ProfilePage() {
         const data: UserProfile = await res.json()
         applyData(data)
         setSaved(data)
-      } catch (err) {
-        console.error(err)
+      } catch {
         toast.error("Could not load your profile")
       } finally {
         setLoading(false)
@@ -302,8 +301,7 @@ export default function ProfilePage() {
       applyData(updated)
       setSaved(updated)
       toast.success("Profile updated successfully")
-    } catch (err) {
-      console.error(err)
+    } catch {
       toast.error("Failed to update profile")
     } finally {
       setSaving(false)

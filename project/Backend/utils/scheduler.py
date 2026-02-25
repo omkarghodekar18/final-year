@@ -15,11 +15,11 @@ def _run_job_fetcher():
     try:
         from utils.job_fetcher import fetch_jobs
 
-        print("⏰ Scheduled job-fetch started …")
+        print("Scheduled job-fetch started")
         fetch_jobs()
-        print("✅ Scheduled job-fetch completed.")
+        print("Scheduled job-fetch completed")
     except Exception as e:
-        print(f"❌ Scheduled job-fetch failed: {e}")
+        print(f"Scheduled job-fetch failed: {e}")
 
 
 def start_scheduler():
@@ -37,4 +37,4 @@ def start_scheduler():
     )
 
     _scheduler.start()
-    print("🕛 Job-fetch scheduler started – next run at midnight.")
+    print("Job-fetch scheduler started")

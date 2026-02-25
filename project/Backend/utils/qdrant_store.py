@@ -21,7 +21,7 @@ def get_qdrant() -> QdrantClient:
         if not url:
             raise RuntimeError("QDRANT_URL is not set in .env")
         _client = QdrantClient(url=url, api_key=api_key)
-        print("✓ Qdrant connected")
+        print("Qdrant connected")
     return _client
 
 
@@ -38,7 +38,7 @@ def ensure_collections():
                     distance=Distance.COSINE,
                 ),
             )
-            print(f"  Created Qdrant collection: {name}")
+            print(f"Created Qdrant collection: {name}")
 
 
 def upsert_resume_vector(clerk_id: str, embedding: list[float]):
@@ -101,7 +101,7 @@ def flush_all_jobs():
             distance=Distance.COSINE,
         ),
     )
-    print("  Flushed Qdrant 'jobs' collection")
+    print("Flushed Qdrant 'jobs' collection")
 
 
 def search_similar_jobs(embedding: list[float], limit: int = 10):

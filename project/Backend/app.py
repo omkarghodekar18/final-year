@@ -32,7 +32,7 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Allow requests from the Next.js frontend
+# CORS
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 CORS(app, origins=cors_origins, supports_credentials=True)
 
@@ -51,7 +51,7 @@ cloudinary.config(
     secure=True,
 )
 
-# SkillNer is lazy-loaded on first use (it's slow to initialize)
+# SkillNer is lazy-loaded on first use
 _skill_extractor = None
 
 def get_extractor():
@@ -71,7 +71,7 @@ with app.app_context():
     except Exception:
         pass
 
-# ── Start background job-fetch scheduler (runs at midnight in a daemon thread) ──
+# Start background job-fetch scheduler
 start_scheduler()
 
 
@@ -115,8 +115,6 @@ def get_matched_jobs():
     has_more = len(all_matches) > offset + limit
     matches = page_matches
 
-    # Look up full metadata from MongoDB
-    from database import get_db
     jobs_col = get_db()["jobs"]
 
     results = []
@@ -410,7 +408,7 @@ JOB DESCRIPTION:
 CANDIDATE SKILLS:
 {resume_context}"""
 
-    # ── Call OpenRouter (try models in order, skip on 429) ─────────────────
+    # Call OpenRouter (try models in order, skip on 429)
     last_error = None
     for model in FREE_MODELS:
         try:
@@ -439,7 +437,7 @@ CANDIDATE SKILLS:
 
             content = response.json()["choices"][0]["message"]["content"].strip()
 
-            # ── Extract JSON array from response ───────────────────────────
+            # Extract JSON array from response
             match = re.search(r"\[.*\]", content, re.S)
             if not match:
                 last_error = "No JSON array in AI response"

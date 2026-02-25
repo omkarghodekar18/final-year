@@ -31,7 +31,7 @@ function AvatarPlaceholder() {
   )
 }
 
-// ── Fallback Questions in case AI generation fails ──────────────────────────────
+// Fallback questions if AI generation fails
 const FALLBACK_QUESTIONS = [
   "Tell me about yourself and your professional background.",
   "What motivated you to apply for this role?",
@@ -71,13 +71,13 @@ export default function InterviewSessionPage() {
   const animFrameRef    = useRef<number>(0)
   const sourceRef       = useRef<AudioBufferSourceNode | null>(null)
 
-  // ── Fetch AI Questions on Mount ───────────────────────────────────────────
+  // Fetch AI questions on mount
   useEffect(() => {
     let mounted = true
     async function initQuestions() {
       try {
         const token = await getToken()
-        const res = await fetch("http://localhost:5000/api/ask", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/ask`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -110,7 +110,7 @@ export default function InterviewSessionPage() {
     return () => { mounted = false }
   }, [params.id, getToken])
 
-  // ── TTS via edge-tts backend ── with SpeechSynthesis fallback ─────────────
+  // TTS via edge-tts backend
   const speak = useCallback(async (text: string, onEnd?: () => void) => {
     // Stop any currently playing audio
     sourceRef.current?.stop()
@@ -119,7 +119,7 @@ export default function InterviewSessionPage() {
 
     try {
       // 1. Fetch MP3 from edge-tts backend
-      const res = await fetch("http://localhost:5000/api/tts/speak", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tts/speak`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -176,7 +176,7 @@ export default function InterviewSessionPage() {
   }, [])
 
 
-  // ── STT ───────────────────────────────────────────────────────────────────
+  // Speech-to-text
   const startListening = useCallback(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -260,7 +260,7 @@ export default function InterviewSessionPage() {
 
   const progress = Math.round((questionIndex / Math.max(1, questions.length)) * 100)
 
-  // ── DONE ─────────────────────────────────────────────────────────────────
+  // Done phase
   if (phase === "done") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
@@ -296,7 +296,7 @@ export default function InterviewSessionPage() {
     )
   }
 
-  // ── INTRO ──────────────────────────────────────────────────────────────────
+  // Intro phase
   if (phase === "intro") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
@@ -345,7 +345,7 @@ export default function InterviewSessionPage() {
     )
   }
 
-  // ── INTERVIEW ─────────────────────────────────────────────────────────────
+  // Interview phase
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Top bar */}

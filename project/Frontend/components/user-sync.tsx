@@ -19,7 +19,7 @@ export function UserSync() {
     const sync = async () => {
       try {
         const token = await getToken()
-        await fetch("http://localhost:5000/api/auth/sync", {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/sync`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -33,8 +33,7 @@ export function UserSync() {
           }),
         })
         hasSynced.current = true
-      } catch (err) {
-        console.error("Failed to sync user:", err)
+      } catch {
       }
     }
 

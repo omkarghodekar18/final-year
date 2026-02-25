@@ -35,7 +35,7 @@ def fetch_jobs(country="in"):
 
     # ── Flush old data from both stores ──────────────────────────────────
     col.delete_many({})              # clear MongoDB jobs collection
-    print("  Flushed MongoDB 'jobs' collection")
+    print("Flushed MongoDB 'jobs' collection")
     flush_all_jobs()                 # clear Qdrant jobs collection
 
     FRESHER_QUERIES = [
@@ -98,7 +98,7 @@ def fetch_jobs(country="in"):
                 if not job_id:
                     continue
 
-                # ✅ MEMORY DEDUP (within this run)
+                # Dedup within this run
                 if job_id in processed_job_ids:
                     continue
 
@@ -155,4 +155,4 @@ def fetch_jobs(country="in"):
 
                 stored_count += 1
 
-    print(f"✅ Job fetch complete – {stored_count} jobs stored (max {MAX_JOBS})")
+    print(f"Job fetch complete - {stored_count} jobs stored (max {MAX_JOBS})")

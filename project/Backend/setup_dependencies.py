@@ -13,10 +13,10 @@ print(f"Checking SpaCy model '{SPACY_MODEL}'...")
 
 try:
     spacy.load(SPACY_MODEL)
-    print(f"  ✓ '{SPACY_MODEL}' already installed")
+    print(f"'{SPACY_MODEL}' already installed")
 except OSError:
-    print(f"  ↓ Downloading '{SPACY_MODEL}' (this may take a few minutes)...")
+    print(f"Downloading '{SPACY_MODEL}' (this may take a few minutes)...")
     download(SPACY_MODEL)
-    print(f"  ✓ '{SPACY_MODEL}' installed successfully")
+    print(f"'{SPACY_MODEL}' installed successfully")
 
-print("\n✅ All NLP dependencies ready!")
+print("\nAll NLP dependencies ready!")

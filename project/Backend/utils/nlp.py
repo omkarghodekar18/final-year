@@ -20,9 +20,9 @@ def get_skill_extractor():
         from skillNer.skill_extractor_class import SkillExtractor
 
         skill_extractor = SkillExtractor(nlp, SKILL_DB, PhraseMatcher)
-        print("✓ SkillNer initialized")
+        print("SkillNer initialized")
     except OSError:
-        print(f"⚠ SpaCy model '{SPACY_MODEL}' not found. Run setup_dependencies.py first.")
+        print(f"SpaCy model '{SPACY_MODEL}' not found. Run setup_dependencies.py first.")
         return None
 
     return skill_extractor
