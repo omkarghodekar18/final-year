@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { useAuth } from "@clerk/nextjs"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,7 +10,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Mail, MapPin, Briefcase, Calendar, Award, Loader2 } from "lucide-react"
+import {
+  Mail, MapPin, Briefcase, Calendar, Award, Loader2,
+  Upload, FileText, CheckCircle2, XCircle,
+} from "lucide-react"
 
 const API_BASE = "http://localhost:5000"
 
@@ -26,6 +29,201 @@ interface UserProfile {
   created_at?: string
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+interface ResumeData { [key: string]: any }
+
+// ── Resume Upload Card ────────────────────────────────────────────────────────
+function ResumeUploadCard() {
+  const { getToken } = useAuth()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [uploading, setUploading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [resumeFile, setResumeFile] = useState<File | null>(null)
+  const [parsedData, setParsedData] = useState<ResumeData | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  const handleUpload = useCallback(async (file: File) => {
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      toast.error("Please upload a PDF file")
+      return
+    }
+
+    setResumeFile(file)
+    setParsedData(null)
+    setUploadError(null)
+    setUploading(true)
+
+    try {
+      const token = await getToken()
+      const formData = new FormData()
+      formData.append("resume", file)
+
+      const res = await fetch(`${API_BASE}/api/parse-resume`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+
+      const json = await res.json()
+
+      if (!res.ok || json.status === "error") {
+        throw new Error(json.message || json.error || "Upload failed")
+      }
+
+      setParsedData(json.data)
+      toast.success("Resume parsed successfully!")
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to parse resume"
+      setUploadError(message)
+      toast.error(message)
+    } finally {
+      setUploading(false)
+    }
+  }, [getToken])
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleUpload(file)
+  }
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) handleUpload(file)
+  }, [handleUpload])
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(true)
+  }
+
+  const handleDragLeave = () => setDragOver(false)
+
+  const renderValue = (value: unknown): string => {
+    if (value == null) return "—"
+    if (Array.isArray(value)) return value.length ? value.join(", ") : "—"
+    return String(value) || "—"
+  }
+
+  const DISPLAY_FIELDS: { key: string; label: string }[] = [
+    { key: "name", label: "Name" },
+    { key: "email", label: "Email" },
+    { key: "mobile_number", label: "Phone" },
+    { key: "skills", label: "Skills" },
+    { key: "college_name", label: "College" },
+    { key: "degree", label: "Degree" },
+    { key: "designation", label: "Designation" },
+    { key: "company_names", label: "Companies" },
+    { key: "experience", label: "Experience" },
+    { key: "total_experience", label: "Total Experience" },
+    { key: "no_of_pages", label: "Pages" },
+  ]
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-primary" />
+          Resume
+        </CardTitle>
+        <CardDescription>Upload your resume to auto-extract skills, experience, and more</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Drop zone */}
+        <div
+          onClick={() => fileInputRef.current?.click()}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          className={`
+            relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed
+            p-8 transition-all duration-200
+            ${dragOver
+              ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
+              : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50"
+            }
+          `}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+
+          {uploading ? (
+            <>
+              <Loader2 className="mb-3 h-10 w-10 animate-spin text-primary" />
+              <p className="text-sm font-medium">Parsing your resume…</p>
+              <p className="text-xs text-muted-foreground">This may take a few seconds</p>
+            </>
+          ) : resumeFile && !uploadError ? (
+            <>
+              <CheckCircle2 className="mb-3 h-10 w-10 text-green-500" />
+              <p className="text-sm font-medium text-green-600 dark:text-green-400">{resumeFile.name}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Click or drag to upload a different resume</p>
+            </>
+          ) : (
+            <>
+              <div className="mb-3 rounded-full bg-primary/10 p-3">
+                <Upload className="h-6 w-6 text-primary" />
+              </div>
+              <p className="text-sm font-medium">
+                {uploadError ? "Upload failed — try again" : "Drop your resume here or click to browse"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">PDF files only</p>
+              {uploadError && (
+                <div className="mt-2 flex items-center gap-1 text-xs text-destructive">
+                  <XCircle className="h-3 w-3" />
+                  {uploadError}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Parsed data */}
+        {parsedData && (
+          <div className="space-y-4 rounded-xl border bg-muted/30 p-5">
+            <h4 className="flex items-center gap-2 text-sm font-semibold">
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              Extracted Information
+            </h4>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {DISPLAY_FIELDS.map(({ key, label }) => {
+                const value = parsedData[key]
+                if (value == null || (Array.isArray(value) && value.length === 0)) return null
+                return (
+                  <div key={key} className="space-y-1">
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+                    <p className="text-sm">
+                      {key === "skills" && Array.isArray(value) ? (
+                        <span className="flex flex-wrap gap-1">
+                          {value.map((skill: string) => (
+                            <Badge key={skill} variant="secondary" className="text-xs">
+                              {skill}
+                            </Badge>
+                          ))}
+                        </span>
+                      ) : (
+                        renderValue(value)
+                      )}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ── Main Profile Page ─────────────────────────────────────────────────────────
 export default function ProfilePage() {
   const { getToken } = useAuth()
 
@@ -263,6 +461,9 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Resume Upload */}
+        <ResumeUploadCard />
 
         {/* Skills & Interests */}
         <Card>
