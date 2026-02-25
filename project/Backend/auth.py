@@ -32,6 +32,9 @@ def require_auth(f):
 
     @functools.wraps(f)
     def decorated(*args, **kwargs):
+        if request.method == "OPTIONS":
+            return f(*args, **kwargs)
+
         auth_header = request.headers.get("Authorization", "")
 
         if not auth_header.startswith("Bearer "):

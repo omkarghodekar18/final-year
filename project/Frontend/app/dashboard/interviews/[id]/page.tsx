@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import { useParams } from "next/navigation"
+import { useAuth } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -11,6 +12,7 @@ import {
   RotateCcw,
   CheckCircle2,
   Home,
+  Loader2,
 } from "lucide-react"
 import Link from "next/link"
 import dynamic from "next/dynamic"
@@ -29,18 +31,13 @@ function AvatarPlaceholder() {
   )
 }
 
-// ── 10 Mock Interview Questions ───────────────────────────────────────────────
-const MOCK_QUESTIONS = [
+// ── Fallback Questions in case AI generation fails ──────────────────────────────
+const FALLBACK_QUESTIONS = [
   "Tell me about yourself and your professional background.",
   "What motivated you to apply for this role?",
   "Describe a challenging project you worked on and how you handled it.",
   "How do you prioritize tasks when you have multiple deadlines?",
   "Tell me about a time you had to work collaboratively in a team.",
-  "What are your greatest technical strengths relevant to this position?",
-  "How do you stay updated with the latest trends in your field?",
-  "Describe a situation where you had to learn something new very quickly.",
-  "Where do you see yourself professionally in the next three to five years?",
-  "Do you have any questions for us?",
 ]
 
 type Phase = "intro" | "ai-speaking" | "user-answering" | "done"
@@ -82,7 +79,10 @@ function pickBestVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | u
 
 export default function InterviewSessionPage() {
   const params = useParams()
+  const { getToken } = useAuth()
 
+  const [questions, setQuestions]           = useState<string[]>([])
+  const [loadingQuestions, setLoadingQuestions] = useState(true)
   const [phase, setPhase]                   = useState<Phase>("intro")
   const [questionIndex, setQuestionIndex]   = useState(0)
   const [transcript, setTranscript]         = useState("")
@@ -97,6 +97,51 @@ export default function InterviewSessionPage() {
   const analyserRef     = useRef<AnalyserNode | null>(null)
   const animFrameRef    = useRef<number>(0)
   const sourceRef       = useRef<AudioBufferSourceNode | null>(null)
+
+  // ── Fetch AI Questions on Mount ───────────────────────────────────────────
+  useEffect(() => {
+    let mounted = true
+    async function initQuestions() {
+      try {
+        const token = await getToken()
+        console.log("Sending job_id to /api/ask:", JSON.stringify(params.id))
+        const res = await fetch("http://localhost:5000/api/ask", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ job_id: params.id })
+        })
+        if (!res.ok) {
+          const errText = await res.text()
+          // If rate-limited (429 or 503), silently use fallback questions
+          if (res.status === 429 || res.status === 503) {
+            console.log("AI rate-limited, using fallback questions.")
+            if (mounted) setQuestions(FALLBACK_QUESTIONS)
+            return
+          }
+          console.error("Backend Error Response:", res.status, errText)
+          throw new Error(`Failed to fetch questions: ${res.status} ${errText}`)
+        }
+        const data = await res.json()
+        console.log("data" , data.questions)
+        if (mounted) {
+           setQuestions(data.questions?.length ? data.questions : FALLBACK_QUESTIONS)
+        }
+      } catch (err) {
+        console.error("AI question generation failed:", err)
+        if (mounted) setQuestions(FALLBACK_QUESTIONS)
+      } finally {
+        if (mounted) setLoadingQuestions(false)
+      }
+    }
+    
+    if (params.id) {
+      initQuestions()
+    }
+    return () => { mounted = false }
+  }, [params.id, getToken])
 
   // ── TTS via edge-tts backend ── with SpeechSynthesis fallback ─────────────
   const speak = useCallback(async (text: string, onEnd?: () => void) => {
@@ -209,12 +254,12 @@ export default function InterviewSessionPage() {
     (index: number) => {
       setPhase("ai-speaking")
       setTranscript("")
-      speak(MOCK_QUESTIONS[index], () => {
+      speak(questions[index], () => {
         setPhase("user-answering")
         startListening()
       })
     },
-    [speak, startListening]
+    [speak, startListening, questions]
   )
 
   const startInterview = () => {
@@ -226,7 +271,7 @@ export default function InterviewSessionPage() {
   const handleNext = () => {
     stopListening()
     const current: Answer = {
-      question: MOCK_QUESTIONS[questionIndex],
+      question: questions[questionIndex],
       transcript: transcript.trim() || "(no answer recorded)",
     }
     const updated = [...answers, current]
@@ -235,7 +280,7 @@ export default function InterviewSessionPage() {
     console.log(`\n📝 Q${questionIndex + 1}: ${current.question}`)
     console.log(`💬 Answer: ${current.transcript}`)
 
-    if (questionIndex + 1 >= MOCK_QUESTIONS.length) {
+    if (questionIndex + 1 >= questions.length) {
       console.log("\n\n====== INTERVIEW COMPLETE ======")
       updated.forEach((a, i) => {
         console.log(`\nQ${i + 1}: ${a.question}`)
@@ -265,7 +310,7 @@ export default function InterviewSessionPage() {
     }
   }, [])
 
-  const progress = Math.round((questionIndex / MOCK_QUESTIONS.length) * 100)
+  const progress = Math.round((questionIndex / Math.max(1, questions.length)) * 100)
 
   // ── DONE ─────────────────────────────────────────────────────────────────
   if (phase === "done") {
@@ -318,8 +363,11 @@ export default function InterviewSessionPage() {
               AI Mock Interview
             </h1>
             <p className="text-muted-foreground">
-              I'll ask you <strong>10 questions</strong>. Speak your answers aloud —
-              they'll be transcribed and recorded in real time.
+              {loadingQuestions ? (
+                "Analyzing candidate profile and generating dynamic questions..."
+              ) : (
+                `I'll ask you ${questions.length} tailored questions based on your resume and the job description. Speak your answers aloud — they'll be transcribed and recorded in real time.`
+              )}
             </p>
             <div className="flex justify-center flex-wrap gap-2">
               <Badge variant="secondary">🎙 Voice answers</Badge>
@@ -331,10 +379,18 @@ export default function InterviewSessionPage() {
           <Button
             size="lg"
             onClick={startInterview}
-            className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-10"
+            disabled={loadingQuestions}
+            className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-10 disabled:opacity-80"
           >
-            Start Interview
-            <ChevronRight className="h-4 w-4" />
+            {loadingQuestions ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Generating Questions...
+              </>
+            ) : (
+              <>
+                Start Interview <ChevronRight className="h-4 w-4" />
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -355,7 +411,7 @@ export default function InterviewSessionPage() {
         </Link>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">
-            Question {questionIndex + 1} / {MOCK_QUESTIONS.length}
+            Question {questionIndex + 1} / {questions.length}
           </span>
           <Badge
             variant={phase === "ai-speaking" ? "default" : "secondary"}
@@ -404,7 +460,7 @@ export default function InterviewSessionPage() {
             {phase === "ai-speaking" ? "Question" : "Speak your answer…"}
           </p>
           <p className="text-lg font-semibold leading-snug">
-            {MOCK_QUESTIONS[questionIndex]}
+            {questions[questionIndex]}
           </p>
         </div>
 
@@ -447,7 +503,7 @@ export default function InterviewSessionPage() {
             onClick={handleNext}
             disabled={phase === "ai-speaking"}
           >
-            {questionIndex + 1 === MOCK_QUESTIONS.length ? "Finish Interview" : "Next Question"}
+            {questionIndex + 1 === questions.length ? "Finish Interview" : "Next Question"}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

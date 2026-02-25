@@ -1,6 +1,8 @@
 import os
 import uuid
+import json
 import requests
+from urllib.parse import unquote
 from utils.nlp import get_skill_extractor
 from flask import Flask, jsonify, g, request
 from flask_cors import CORS
@@ -9,6 +11,9 @@ from utils.tts_service import generate_speech_bytes
 from flask import Response
 from utils.scheduler import start_scheduler
 import cloudinary
+from database import get_db
+from bson.objectid import ObjectId
+from bson.errors import InvalidId
 import cloudinary.uploader
 from pdfminer.high_level import extract_text
 from auth import require_auth
@@ -51,12 +56,12 @@ skill_extractor = get_skill_extractor()
 with app.app_context():
     try:
         ensure_indexes()
-    except Exception as e:
-        print(f"⚠ MongoDB index creation failed (is MongoDB reachable?): {e}")
+    except Exception:
+        pass
     try:
         ensure_collections()
-    except Exception as e:
-        print(f"⚠ Qdrant collection setup failed (is Qdrant reachable?): {e}")
+    except Exception:
+        pass
 
 # ── Start background job-fetch scheduler (runs at midnight in a daemon thread) ──
 start_scheduler()
@@ -142,8 +147,8 @@ def get_matched_jobs():
                 
                 # Missing skills = skills needed for job - user's existing skills
                 missing_skills = sorted(list(job_skills_set - user_skills_set))
-            except Exception as e:
-                print(f"Error extracting skills for job {job_id}: {e}")
+            except Exception:
+                pass
                 
         results.append({
             "job_id": job_id,
@@ -261,8 +266,8 @@ def parse_resume():
         if old_public_id:
             try:
                 cloudinary.uploader.destroy(old_public_id, resource_type="raw")
-            except Exception as e:
-                print(f"Warning: could not delete old resume: {e}")
+            except Exception:
+                pass
 
         # ── Upload new resume to Cloudinary ─────────────────────────────
         upload_result = cloudinary.uploader.upload(
@@ -291,11 +296,7 @@ def parse_resume():
         })
 
     except Exception as e:
-        print(f"Resume parse error: {e}")
-        return jsonify({
-            "status": "error",
-            "message": str(e),
-        }), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
     finally:
         if os.path.exists(filepath):
@@ -325,42 +326,110 @@ def tts_speak():
             },
         )
     except Exception as e:
-        print(f"TTS error: {e}")
         return jsonify({"error": str(e)}), 500
 
 
 # ── OpenRouter Generate Questions ────────────────────────────────────────────
-@app.route('/api/ask', methods=['POST'])
+@app.route('/api/ask', methods=['POST', 'OPTIONS'])
 @require_auth
 def ask_gemma():
+    if request.method == 'OPTIONS':
+        return "", 204
+
     data = request.get_json(silent=True) or {}
-    resume = data.get('resume', '')
-    jd = data.get('jd', '')
-
-    prompt = f"Analyze this Resume against the JD and generate 5 interview questions.\n\nJD: {jd}\n\nResume: {resume}"
-
+    raw_job_id = data.get('job_id')
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+
+    job_id = unquote(raw_job_id) if raw_job_id else None
+
+    if not job_id:
+        return jsonify({"error": "job_id is required"}), 400
+
+    # 1. Fetch User Profile & Skills
+    clerk_id = g.user.get("sub")
+    user = get_user_by_clerk_id(clerk_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    skills = user.get("skills", [])
+    resume_context = f"Candidate Skills: {', '.join(skills)}"
+
+    # 2. Fetch Job Description from DB
+    jobs_col = get_db()["jobs"]
+    job_doc = jobs_col.find_one({"job_id": job_id})
+
+    if not job_doc:
+        try:
+            job_doc = jobs_col.find_one({"_id": ObjectId(job_id)})
+        except InvalidId:
+            pass
+
+    if not job_doc:
+        return jsonify({"error": "Job not found"}), 404
+
+    jd = job_doc.get("description", "")
+    job_title = job_doc.get("title", "this role")
+
+    # 3. Construct Prompt
+    prompt = f"""Analyze this candidate's profile against the Job Description and generate exactly 5 relevant interview questions for the role of {job_title}.
+Return the output strictly as a JSON array of strings, with no markdown formatting and no extra text.
+Example format:
+["Question 1?", "Question 2?", "Question 3?", "Question 4?", "Question 5?"]
+
+Job Description:
+{jd}
+
+Candidate Profile:
+{resume_context}"""
+
     if not OPENROUTER_API_KEY:
         return jsonify({"error": "OPENROUTER_API_KEY not configured"}), 500
 
-    response = requests.post(
-        url="https://openrouter.ai/api/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        },
-        json={
-            "model": "google/gemma-3-4b-it:free", # Using the FREE version
-            "messages": [
-                {"role": "system", "content": "You are an expert HR recruiter."},
-                {"role": "user", "content": prompt}
-            ]
+    # Gemma: merge system instruction into user turn (no system role support)
+    messages = [
+        {
+            "role": "user",
+            "content": f"""You are an expert HR recruiter. Only output a valid JSON array of strings.\n\n{prompt}"""
         }
-    )
+    ]
 
-    if response.status_code == 200:
-        return jsonify(response.json()['choices'][0]['message']['content'])
-    else:
-        return jsonify({"error": "API Error", "details": response.text}), response.status_code
+    try:
+        response = requests.post(
+            url="https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            data=json.dumps({
+                "model": "google/gemma-3-4b-it:free",
+                "messages": messages
+            }),
+            timeout=30
+        )
+
+        if response.status_code == 429:
+            return jsonify({"error": "rate_limited", "message": "AI model is temporarily rate-limited."}), 503
+
+        if response.status_code != 200:
+            return jsonify({"error": "API Error"}), 500
+
+        content = response.json()['choices'][0]['message']['content'].strip()
+        if content.startswith("```json"):
+            content = content[7:]
+        if content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+        content = content.strip()
+
+        questions = json.loads(content)
+        if not isinstance(questions, list) or len(questions) == 0:
+            raise ValueError("AI did not return a valid list")
+
+        return jsonify({"questions": questions[:10]})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
