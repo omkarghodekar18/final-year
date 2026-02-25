@@ -1,7 +1,6 @@
 import os
 import functools
 
-import requests
 import jwt
 from flask import request, jsonify, g
 

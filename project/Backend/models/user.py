@@ -14,6 +14,10 @@ phone               str | None  Phone number
 location            str | None  Location (city, state, etc.)
 job_title           str | None  Current job title
 bio                 str | None  Short biography
+resume_url          str | None  Cloudinary URL of uploaded resume
+resume_public_id    str | None  Cloudinary public ID (for deletion)
+skills              list[str]   Skills extracted from resume
+resume_embedding    list[float] 384-dim embedding of resume text
 role                str         User role (default: "user")
 created_at          datetime    When the record was created
 updated_at          datetime    When the record was last updated
@@ -21,6 +25,8 @@ updated_at          datetime    When the record was last updated
 """
 
 from datetime import datetime, timezone
+
+from pymongo import ReturnDocument
 
 from database import get_db
 
@@ -34,7 +40,9 @@ def _collection():
 
 def _serialize(doc: dict | None) -> dict | None:
     """Convert ObjectId to string for JSON serialization."""
-    if doc and "_id" in doc:
+    if doc is None:
+        return None
+    if "_id" in doc:
         doc["_id"] = str(doc["_id"])
     # Ensure datetimes are ISO strings for JSON
     for key in ("created_at", "updated_at"):
@@ -83,7 +91,7 @@ def upsert_user(
             },
         },
         upsert=True,
-        return_document=True,       # return the doc *after* the update
+        return_document=ReturnDocument.AFTER,
     )
 
     return _serialize(result)
@@ -108,7 +116,7 @@ def update_user_profile(clerk_id: str, **fields) -> dict | None:
     result = _collection().find_one_and_update(
         {"clerk_id": clerk_id},
         {"$set": updates},
-        return_document=True,
+        return_document=ReturnDocument.AFTER,
     )
 
     return _serialize(result)
@@ -124,3 +132,31 @@ def get_user_by_email(email: str) -> dict | None:
     """Fetch a user document by email address."""
     user = _collection().find_one({"email": email})
     return _serialize(user)
+
+
+def update_user_resume(
+    clerk_id: str,
+    resume_url: str,
+    resume_public_id: str,
+    skills: list[str],
+) -> dict | None:
+    """Store the Cloudinary resume URL and extracted skills for a user."""
+    update_fields = {
+        "resume_url": resume_url,
+        "resume_public_id": resume_public_id,
+        "skills": skills,
+        "updated_at": datetime.now(timezone.utc),
+    }
+
+    result = _collection().find_one_and_update(
+        {"clerk_id": clerk_id},
+        {"$set": update_fields},
+        return_document=ReturnDocument.AFTER,
+    )
+    return _serialize(result)
+
+
+def get_user_resume_public_id(clerk_id: str) -> str | None:
+    """Return the Cloudinary public_id of the user's current resume (if any)."""
+    user = _collection().find_one({"clerk_id": clerk_id}, {"resume_public_id": 1})
+    return user.get("resume_public_id") if user else None

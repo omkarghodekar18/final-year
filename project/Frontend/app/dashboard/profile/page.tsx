@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import {
   Mail, MapPin, Briefcase, Calendar, Award, Loader2,
-  Upload, FileText, CheckCircle2, XCircle,
+  Upload, FileText, CheckCircle2, XCircle, ExternalLink,
 } from "lucide-react"
 
 const API_BASE = "http://localhost:5000"
@@ -27,20 +27,25 @@ interface UserProfile {
   bio?: string
   profile_image_url?: string
   created_at?: string
+  resume_url?: string
+  skills?: string[]
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-interface ResumeData { [key: string]: any }
+interface ResumeUploadCardProps {
+  resumeUrl: string
+  savedSkills: string[]
+  onUploaded: (resumeUrl: string, skills: string[]) => void
+}
 
 // ── Resume Upload Card ────────────────────────────────────────────────────────
-function ResumeUploadCard() {
+function ResumeUploadCard({ resumeUrl, savedSkills, onUploaded }: ResumeUploadCardProps) {
   const { getToken } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [resumeFile, setResumeFile] = useState<File | null>(null)
-  const [parsedData, setParsedData] = useState<ResumeData | null>(null)
+  const [skills, setSkills] = useState<string[]>(savedSkills)
   const [uploadError, setUploadError] = useState<string | null>(null)
 
   const handleUpload = useCallback(async (file: File) => {
@@ -50,7 +55,7 @@ function ResumeUploadCard() {
     }
 
     setResumeFile(file)
-    setParsedData(null)
+    setSkills([])
     setUploadError(null)
     setUploading(true)
 
@@ -71,7 +76,9 @@ function ResumeUploadCard() {
         throw new Error(json.message || json.error || "Upload failed")
       }
 
-      setParsedData(json.data)
+      const newSkills = json.skills || []
+      setSkills(newSkills)
+      onUploaded(json.resume_url, newSkills)
       toast.success("Resume parsed successfully!")
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to parse resume"
@@ -101,34 +108,32 @@ function ResumeUploadCard() {
 
   const handleDragLeave = () => setDragOver(false)
 
-  const renderValue = (value: unknown): string => {
-    if (value == null) return "—"
-    if (Array.isArray(value)) return value.length ? value.join(", ") : "—"
-    return String(value) || "—"
-  }
-
-  const DISPLAY_FIELDS: { key: string; label: string }[] = [
-    { key: "name", label: "Name" },
-    { key: "email", label: "Email" },
-    { key: "mobile_number", label: "Phone" },
-    { key: "skills", label: "Skills" },
-    { key: "college_name", label: "College" },
-    { key: "degree", label: "Degree" },
-    { key: "designation", label: "Designation" },
-    { key: "company_names", label: "Companies" },
-    { key: "experience", label: "Experience" },
-    { key: "total_experience", label: "Total Experience" },
-    { key: "no_of_pages", label: "Pages" },
-  ]
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-primary" />
-          Resume
-        </CardTitle>
-        <CardDescription>Upload your resume to auto-extract skills, experience, and more</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Resume
+            </CardTitle>
+            <CardDescription className="mt-1">Upload your resume to auto-extract skills</CardDescription>
+          </div>
+          {resumeUrl && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation()
+                window.open(resumeUrl, "_blank")
+              }}
+            >
+              <ExternalLink className="h-4 w-4" />
+              View Resume
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Drop zone */}
@@ -172,7 +177,11 @@ function ResumeUploadCard() {
                 <Upload className="h-6 w-6 text-primary" />
               </div>
               <p className="text-sm font-medium">
-                {uploadError ? "Upload failed — try again" : "Drop your resume here or click to browse"}
+                {uploadError
+                  ? "Upload failed — try again"
+                  : resumeUrl
+                    ? "Drop a new resume to replace the current one"
+                    : "Drop your resume here or click to browse"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">PDF files only</p>
               {uploadError && (
@@ -185,36 +194,19 @@ function ResumeUploadCard() {
           )}
         </div>
 
-        {/* Parsed data */}
-        {parsedData && (
-          <div className="space-y-4 rounded-xl border bg-muted/30 p-5">
+        {/* Extracted skills */}
+        {skills.length > 0 && (
+          <div className="space-y-3 rounded-xl border bg-muted/30 p-5">
             <h4 className="flex items-center gap-2 text-sm font-semibold">
               <CheckCircle2 className="h-4 w-4 text-green-500" />
-              Extracted Information
+              Extracted Skills ({skills.length})
             </h4>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {DISPLAY_FIELDS.map(({ key, label }) => {
-                const value = parsedData[key]
-                if (value == null || (Array.isArray(value) && value.length === 0)) return null
-                return (
-                  <div key={key} className="space-y-1">
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-                    <p className="text-sm">
-                      {key === "skills" && Array.isArray(value) ? (
-                        <span className="flex flex-wrap gap-1">
-                          {value.map((skill: string) => (
-                            <Badge key={skill} variant="secondary" className="text-xs">
-                              {skill}
-                            </Badge>
-                          ))}
-                        </span>
-                      ) : (
-                        renderValue(value)
-                      )}
-                    </p>
-                  </div>
-                )
-              })}
+            <div className="flex flex-wrap gap-2">
+              {skills.map((skill) => (
+                <Badge key={skill} variant="secondary">
+                  {skill}
+                </Badge>
+              ))}
             </div>
           </div>
         )}
@@ -240,6 +232,8 @@ export default function ProfilePage() {
   const [bio, setBio] = useState("")
   const [profileImageUrl, setProfileImageUrl] = useState("")
   const [createdAt, setCreatedAt] = useState("")
+  const [resumeUrl, setResumeUrl] = useState("")
+  const [profileSkills, setProfileSkills] = useState<string[]>([])
 
   // Snapshot of last-saved values (for Cancel)
   const [saved, setSaved] = useState<UserProfile>({})
@@ -277,6 +271,8 @@ export default function ProfilePage() {
     setBio(data.bio ?? "")
     setProfileImageUrl(data.profile_image_url ?? "")
     setCreatedAt(data.created_at ?? "")
+    setResumeUrl(data.resume_url ?? "")
+    setProfileSkills(data.skills ?? [])
   }
 
   // ── Save profile ──────────────────────────────────────────────────────────
@@ -463,7 +459,14 @@ export default function ProfilePage() {
         </div>
 
         {/* Resume Upload */}
-        <ResumeUploadCard />
+        <ResumeUploadCard
+          resumeUrl={resumeUrl}
+          savedSkills={profileSkills}
+          onUploaded={(url, skills) => {
+            setResumeUrl(url)
+            setProfileSkills(skills)
+          }}
+        />
 
         {/* Skills & Interests */}
         <Card>
