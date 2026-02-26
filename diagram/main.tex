@@ -1,0 +1,335 @@
+\documentclass[10pt, letterpaper]{article}
+
+% Packages:
+% \usepackage[
+%     ignoreheadfoot,
+%     top=0.5cm,
+%     bottom=0.5cm,
+%     left=1.5cm,
+%     right=1.5cm,
+%     footskip=1.0cm
+% ]{geometry}
+
+\usepackage[
+    top=0.3in,
+    bottom=0.1in,
+    left=0.42in,
+    right=0.42in
+]{geometry}
+\usepackage{graphicx}
+
+
+\usepackage{titlesec, tabularx, array, enumitem, fontspec, hyperref}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{amsmath, eso-pic, calc, bookmark, lastpage, changepage, paracol, ifthen, needspace, iftex}
+
+
+% Fonts and Icons:
+\setmainfont{Arial}
+
+\usepackage{fontawesome5}
+
+% Colors:
+\definecolor{primaryColor}{RGB}{0, 79, 144}
+
+% Hyperref Metadata:
+\hypersetup{
+    pdftitle={Omkar Ghodekar's CV},
+    pdfauthor={Omkar Ghodekar},
+    pdfcreator={LaTeX with RenderCV},
+    colorlinks=true,
+    urlcolor=primaryColor
+}
+
+% Ensure ATS readability:
+\ifPDFTeX
+    \input{glyphtounicode}
+    \pdfgentounicode=1
+    \usepackage[utf8]{inputenc}
+    \usepackage{lmodern}
+\fi
+
+% Page Setup:
+\pagestyle{empty}
+\setcounter{secnumdepth}{0}
+\setlength{\parindent}{0pt}
+\setlength{\columnsep}{0cm}
+
+% Section Title Formatting:
+\titleformat{\section}
+    {\needspace{4\baselineskip}\bfseries\large\color{primaryColor}}
+    {}
+    {0pt}
+    {}
+    [\vspace{1pt}\color{primaryColor}\titlerule]
+
+\titlespacing{\section}{-1pt}{0.3cm}{0.2cm}
+
+% Custom Lists:
+\renewcommand\labelitemi{$\circ$}
+\newenvironment{highlights}{
+    \begin{itemize}[topsep=0.1cm, parsep=0.1cm, itemsep=0pt, leftmargin=1cm]
+}{
+    \end{itemize}
+}
+
+% Entry Environments:
+\newenvironment{onecolentry}{
+    \begin{adjustwidth}{0.2cm}{0.2cm}
+}{
+    \end{adjustwidth}
+}
+
+\newenvironment{twocolentry}[2][]{
+    \onecolentry
+    \def\secondColumn{#2}
+    \setcolumnwidth{\fill, 4.5cm}
+    \begin{paracol}{2}
+}{
+    \switchcolumn \raggedleft \secondColumn
+    \end{paracol}
+    \endonecolentry
+}
+
+% Header Environment:
+\newenvironment{header}{
+    \setlength{\topsep}{0pt}\par\kern\topsep\centering\linespread{1.5}
+}{
+    \par\kern\topsep
+}
+
+% Add Last Updated Text:
+\newcommand{\placelastupdatedtext}{%
+    \AddToShipoutPictureFG*{
+        \put(
+            \LenToUnit{\paperwidth-2cm},
+            \LenToUnit{\paperheight-1cm}
+        ){\small\color{gray}\textit{Last updated in September 2024}}
+    }
+}
+
+% Links:
+\let\hrefWithoutArrow\href
+\renewcommand{\href}[2]{\hrefWithoutArrow{#1}{\ifthenelse{\equal{#2}{}}{ }{#2 }\raisebox{.15ex}{\footnotesize\faExternalLink*}}}
+
+% Document Content:
+\begin{document}
+\newcommand{\faLeetCode}{\includegraphics[height=0.9em]{./Leetcode.png}} % put leetcode.png in project folder
+
+\begin{header}
+    % Name
+    \textbf{\fontsize{24 pt}{12 pt}\selectfont \color{primaryColor} Omkar Ghodekar} \\[6pt]
+    \vspace{-0.1cm}
+    % Contact info in one centered line (all underlined + clickable, no extra spacing)
+    \textcolor[HTML]{371e77}{\underline{\faMapMarker* Pune, MH}} $|$
+    \hrefWithoutArrow{mailto:omkarghodekar18@gmail.com}{\textcolor[HTML]{371e77}{\underline{\faEnvelope[regular] omkarghodekar18@gmail.com}}} $|$
+    \hrefWithoutArrow{tel:+917350978721}{\textcolor[HTML]{371e77}{\underline{\faPhone* +91 7350978721}}} $|$
+    \hrefWithoutArrow{https://www.linkedin.com/in/omkarghodekar18}{\textcolor[HTML]{371e77}{\underline{\faLinkedinIn \hspace{0.025cm} omkarghodekar18}}} 
+\end{header}
+\vspace{0.1cm}
+\begin{header}
+  
+    \hrefWithoutArrow{https://github.com/omkarghodekar18}{\textcolor[HTML]{371e77}{\underline{\faGithub \hspace{0.025cm} omkarghodekar18}}} $|$
+\hrefWithoutArrow{https://leetcode.com/u/omkarghodekar18/}{\textcolor[HTML]{371e77}{\underline{\faLeetCode \hspace{0.001cm}omkarghodekar18}}}
+
+
+
+\end{header}
+
+\section{\textcolor{primaryColor}{Education}}
+
+\begin{tabularx}{\linewidth}{@{}lXr@{}}
+    \textbf{Dr. D. Y. Patil College of Engineering, Akurdi} 
+        &  % this X column eats up all the middle space
+        & \textcolor{black}{Aug 2023 -- Present} \\[2pt]
+    \text{B.E. in Computer Engineering : CGPA 8.84/10} 
+        &  
+        & \textcolor{black}{\footnotesize\faMapMarker* Nigdi, Pune} \\[2pt]
+\end{tabularx}
+
+\begin{tabularx}{\linewidth}{@{}lXr@{}}
+    \textbf{Government Polytechnic Awasari} 
+        & 
+        & \textcolor{black}{Dec 2020 -- June 2023} \\[2pt]
+    \text{Diploma in Information Technology : Percentage 90.94\%} 
+        &
+        & \textcolor{black}{\footnotesize\faMapMarker* Ambegaon, Pune} \\[2pt]
+\end{tabularx}
+\textbf{Coursework:} Object-Oriented Programming (OOP), Data Structures \& Algorithms (DSA), Database Management Systems (DBMS), Computer Networks (CNS)
+
+
+% \section{Skills}
+% \textbf{Languages:} C++, JavaScript (ES6), TypeScript, SQL\\[3pt]
+% \textbf{Full Stack Development:} React.js, Node.js, Express.js, Tailwind CSS\\[3pt]
+% \textbf{Cloud:} AWS (EC2, VPC, S3, IAM), Docker, Terraform\\[3pt]
+% \textbf{Databases \& Cache:} PostgreSQL, MySQL, MongoDB, Redis\\[3pt]
+% \textbf{Tools:} Git, GitHub, Vercel, Netlify, Postman, Linux\\[3pt]
+% \textbf{Fundamentals:} Object-Oriented Programming (OOP), Data Structures \& Algorithms (DSA), Database Management Systems (DBMS), Computer Networks (CNS)
+
+\vspace{-2pt}
+
+\section{Skills}
+
+\begin{tabularx}{\textwidth}{@{} l X @{\hspace{1cm}} l X @{}}
+\textbf{Languages:} & C++, JavaScript, TypeScript, SQL &
+\textbf{Cloud:} & AWS (EC2, VPC, S3, IAM), Docker, Terraform \\
+
+\textbf{Frontend:} & React.js, Redux Toolkit, Tailwind CSS &
+\textbf{Backend:} & Node.js, Express.js \\
+
+\textbf{Databases:} & PostgreSQL, MySQL, MongoDB, Redis &
+\textbf{Tools:} & Git, GitHub, Linux, Postman, Vercel, Netlify \\
+\end{tabularx}
+
+\vspace{-2pt}
+
+\section{Experience}
+\begin{tabularx}{\linewidth}{@{}l r@{}}
+    \textbf{rtCamp - SDE Intern} 
+        & \textcolor{black}{Jan 2026 -- Feb 2026} \\
+    \textbf{Tech Stack:} Frappe Framework, Python, MariaDB, REST APIs, Tailwind CSS, HTML, Javascript
+        & \\[3pt]
+    \multicolumn{2}{@{}l@{}}{%
+        \begin{minipage}[t]{\linewidth}
+            \begin{itemize}[label=•, nosep,after=\strut, leftmargin=1.5em, itemsep=2pt]
+                \item Engineered a Helpdesk \& SLA Management System using the Frappe Framework, enabling centralized ticket lifecycle management with automated SLA tracking and escalation workflows.
+                \item Implemented scheduler-driven SLA enforcement using asynchronous background jobs to automate response tracking, breach detection, and escalation workflows.
+                \item Designed RBAC, automated ticket assignment, and workload balancing mechanisms to distribute support workload efficiently across agents.
+            \end{itemize}
+        \end{minipage}
+    } \\
+\end{tabularx}
+\vspace{3pt}
+\begin{tabularx}{\linewidth}{@{}l r@{}}
+    \textbf{ConnectWise} \textbf{- DevOps Intern} 
+        & \textcolor{black}{Jun 2025 -- Aug 2025} \\
+    \textbf{Tech Stack:} Terraform, Kubernetes (EKS), AWS, GitLab CI/CD, Helm, Flux
+        & \\[3pt]
+    \multicolumn{2}{@{}l@{}}{%
+        \begin{minipage}[t]{\linewidth}
+            \begin{itemize}[label=•, nosep,after=\strut, leftmargin=1.5em, itemsep=2pt]
+                \item Migrated Kubernetes infrastructure automation from AWS CloudFormation to modular Terraform by designing reusable Infrastructure-as-Code modules, enabling standardized and maintainable Amazon EKS provisioning workflows.
+                \item Automated Amazon EKS control plane, node group, and add-on upgrades using Terraform workflows, reducing manual effort by 75\% via parameter-driven lifecycle management.
+                \item Enhanced Amazon EKS cluster security by enforcing API endpoint IP whitelisting for 40+ approved enterprise IP addresses and implementing EKS Pod Identity, transition workloads from instance-level IAM roles to least-privilege pod-level access.
+            \end{itemize}
+        \end{minipage}
+    } \\
+\end{tabularx}
+
+\vspace{-2pt}
+
+\section{Projects}
+
+% \begin{twocolentry}
+%     {
+%         \text{\hrefWithoutArrow{https://github.com/omkarghodekar14/codelive}{\footnotesize\faGithub}\hspace*{0.08cm}\small\underline{\hrefWithoutArrow{https://github.com/omkarghodekar14/codelive}{GitHub}} |}
+%         \text{\hrefWithoutArrow{https://codelive-qbeo.onrender.com/}{\footnotesize\faLink}\hspace*{0.08cm}\small\underline{\hrefWithoutArrow{https://codelive-qbeo.onrender.com/}{Link}}}
+%     }
+%     \textbf{\large CodeLive} \hspace{0.1cm} \textbf{\textit{(Realtime Code Editor \& Compiler)}}
+
+% \end{twocolentry}
+
+% \begin{onecolentry}
+%     \textbf{Tech Stack:} React, Express, Node.js, WebRTC, Socket.io, Gemini, Judge 0  
+
+%     \vspace{0.05 cm}
+%     \textbf{}- CodeLive is a real-time code editor and compiler that allows multiple users to collaborate on a single code, seeing changes instantly. Users can communicate with each other using the voice chat feature. It also includes a Gemini-powered chatbot for quick assistance.
+% \end{onecolentry}
+%  \vspace{0.1 cm}
+
+% Row with title + links
+
+\begin{tabularx}{\linewidth}{@{}l>{\raggedleft\arraybackslash}X@{}}
+    \textbf{GoTinyUrls - URL Shortener with Live Click Analytics} 
+        & \textcolor{black}{%
+            \hrefWithoutArrow{https://github.com/omkarghodekar18/gotinyurls}{\underline{\faGithub \hspace{0.1cm}GitHub}} \;|\;
+            \hrefWithoutArrow{https://gotinyurls.netlify.app/}{\underline{\faLink \hspace{0.1cm}Link}}
+          } \\
+\end{tabularx}
+
+
+\begin{tabularx}{\linewidth}{@{}l@{}}
+    \textbf{Tech Stack:} React, Redux, Tailwind CSS, ShadCN, Recharts, Node.js, Express, MongoDB, Redis, BullMQ \\
+\end{tabularx}
+
+
+\begin{tabularx}{\linewidth}{@{}l r@{}}
+    \multicolumn{2}{@{}l@{}}{%
+        \begin{minipage}[t]{\linewidth}
+            \begin{itemize}[label=•, nosep,after=\strut, leftmargin=1.5em, itemsep=2pt]
+                \item Developed a responsive analytics dashboard using React and Redux Toolkit with authenticated routing, reusable API hooks, and interactive data visualizations (Recharts, react-globe.gl) to monitor real-time global traffic insights.
+                
+                \item Architected a microservices-based URL shortening platform generating 14M+ collision-free links using Redis atomic counters (INCR) and Base62 encoding.
+
+                \item Reduced redirect latency >50\% through positive/negative Redis caching and async BullMQ analytics workers.
+                
+                \item  Implemented IP-based rate limiting (20 requests/minute) using Redis counters to ensure stability under load.
+                % \item Designed an event-driven analytics pipeline with MaxMind GeoIP resolution, aggregating day-wise and region-wise click metrics.
+            \end{itemize}
+        \end{minipage}
+    } \\
+\end{tabularx}
+
+\vspace{3pt}
+
+\begin{tabularx}{\linewidth}{@{}l>{\raggedleft\arraybackslash}X@{}}
+    \textbf{CodeLive - Realtime Code Editor \& Compiler} 
+        & \textcolor{black}{%
+            \hrefWithoutArrow{https://github.com/omkarghodekar18/codelive}{\underline{\faGithub \hspace{0.1cm}GitHub}} \;|\;
+            \hrefWithoutArrow{https://codelive-qbeo.onrender.com/}{\underline{\faLink \hspace{0.1cm}Link}}
+          } \\
+    \multicolumn{2}{@{}l@{}}{\textbf{Tech Stack:} React, Tailwind CSS, Node.js, Express, Judge0 API, Socket.IO} \\
+\end{tabularx}
+
+
+\begin{tabularx}{\linewidth}{@{}l r@{}}
+
+    \multicolumn{2}{@{}l@{}}{%
+        \begin{minipage}[t]{\linewidth}
+            \begin{itemize}[label=•, nosep,after=\strut, leftmargin=1.5em, itemsep=2pt]
+                \item Engineered CodeLive, a real-time collaborative code editor and compiler enabling multi-user collaboration via event-driven WebSocket communication.
+
+                \item Integrated Judge0 API to enable server-side C++ code compilation and execution, allowing users to run programs directly within the collaborative coding environment.
+                
+                \item Integrated Google Gemini AI chatbot for context-aware code analysis and debugging assistance within the collaborative coding environment.
+            \end{itemize}
+        \end{minipage}
+    } \\
+\end{tabularx}
+
+
+\section*{Certifications \& Achievements}
+
+
+\begin{tabularx}{\linewidth}{@{}l r@{}}
+    \textbf{Udemy} -- Full Stack Web Development With MERN STACK \& GenAI 
+        & \hrefWithoutArrow{https://www.udemy.com/certificate/UC-7564e6a4-5bc9-4fe1-9611-8d6608325c03/}{\textcolor[HTML]{371e77}{\underline{\faLink \hspace{0.025cm} Certificate}}} \\
+\end{tabularx}
+
+\begin{tabularx}{\linewidth}{@{}l r@{}}
+    C and C++ Training Programme (Spoken Tutorial Project, IIT Bombay) 
+        & \hrefWithoutArrow{https://drive.google.com/file/d/1hy9MAnBCf4TAXIpYDDWdKWmFKPjuxsi3/view?usp=sharing}{\textcolor[HTML]{371e77}{\underline{\faLink \hspace{0.025cm} Certificate}}} \\
+\end{tabularx}
+
+
+
+% \begin{onecolentry}
+%     \textbf{Udemy --} Full Stack Web Development With MERN STACK \& GenAI 2024 
+%     \hspace*{0.1cm}
+%     \hrefWithoutArrow{https://codelive-qbeo.onrender.com/}{\footnotesize\faLink\hspace*{0.08cm}\small\underline{Link}}
+% \end{onecolentry}
+
+% \begin{onecolentry}
+%     \textbf{Udemy --} Full Stack Web Development With MERN STACK \& GenAI 2024 
+%     \hspace*{0.1cm}
+%     \hrefWithoutArrow{https://codelive-qbeo.onrender.com/}{\footnotesize\faLink\hspace*{0.08cm}\small\underline{Link}}
+% \end{onecolentry}
+
+
+    
+    
+   
+    
+
+
+\end{document}
