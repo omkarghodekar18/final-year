@@ -47,35 +47,35 @@ interface Answer {
   transcript: string
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnySpeechRecognition = any
-
 export default function InterviewSessionPage() {
   const params = useParams()
   const { getToken } = useAuth()
 
-  const [questions, setQuestions]           = useState<string[]>([])
+  const [questions, setQuestions]               = useState<string[]>([])
   const [loadingQuestions, setLoadingQuestions] = useState(true)
-  const [phase, setPhase]                   = useState<Phase>("intro")
-  const [questionIndex, setQuestionIndex]   = useState(0)
-  const [transcript, setTranscript]         = useState("")
-  const [isMuted, setIsMuted]               = useState(false)
-  const [answers, setAnswers]               = useState<Answer[]>([])
-  const [avatarSpeaking, setAvatarSpeaking] = useState(false)
-  const [avatarAmplitude, setAvatarAmplitude] = useState(0)   // 0-1 real audio level
-  const [listeningActive, setListeningActive] = useState(false)
-  const [speechError, setSpeechError]         = useState<string | null>(null)
+  const [phase, setPhase]                       = useState<Phase>("intro")
+  const [questionIndex, setQuestionIndex]       = useState(0)
+  const [transcript, setTranscript]             = useState("")
+  const [isMuted, setIsMuted]                   = useState(false)
+  const [answers, setAnswers]                   = useState<Answer[]>([])
+  const [avatarSpeaking, setAvatarSpeaking]     = useState(false)
+  const [avatarAmplitude, setAvatarAmplitude]   = useState(0)
+  const [isRecording, setIsRecording]           = useState(false)
+  const [isTranscribing, setIsTranscribing]     = useState(false)
+  const [recordingError, setRecordingError]     = useState<string | null>(null)
 
-  const recognitionRef  = useRef<AnySpeechRecognition>(null)
-  const audioCtxRef     = useRef<AudioContext | null>(null)
-  const analyserRef     = useRef<AnalyserNode | null>(null)
-  const animFrameRef    = useRef<number>(0)
-  const sourceRef       = useRef<AudioBufferSourceNode | null>(null)
-  // Ref that mirrors `transcript` so handleNext can read the live value
-  // synchronously without depending on a stale closure.
-  const transcriptRef   = useRef<string>("")
+  const audioCtxRef    = useRef<AudioContext | null>(null)
+  const analyserRef    = useRef<AnalyserNode | null>(null)
+  const animFrameRef   = useRef<number>(0)
+  const sourceRef      = useRef<AudioBufferSourceNode | null>(null)
+  // MediaRecorder refs
+  const mediaRecRef    = useRef<MediaRecorder | null>(null)
+  const chunksRef      = useRef<Blob[]>([])
+  const streamRef      = useRef<MediaStream | null>(null)
+  // Mirrors `transcript` so handleNext can read the live typed value synchronously
+  const transcriptRef  = useRef<string>("")
 
-  // Fetch AI questions on mount
+  // ─── Fetch AI questions on mount ───────────────────────────────────────────
   useEffect(() => {
     let mounted = true
     async function initQuestions() {
@@ -90,7 +90,6 @@ export default function InterviewSessionPage() {
           body: JSON.stringify({ job_id: params.id })
         })
         if (!res.ok) {
-          // If rate-limited (429 or 503), silently use fallback questions
           if (res.status === 429 || res.status === 503) {
             if (mounted) setQuestions(FALLBACK_QUESTIONS)
             return
@@ -99,7 +98,7 @@ export default function InterviewSessionPage() {
         }
         const data = await res.json()
         if (mounted) {
-           setQuestions(data.questions?.length ? data.questions : FALLBACK_QUESTIONS)
+          setQuestions(data.questions?.length ? data.questions : FALLBACK_QUESTIONS)
         }
       } catch {
         if (mounted) setQuestions(FALLBACK_QUESTIONS)
@@ -107,22 +106,17 @@ export default function InterviewSessionPage() {
         if (mounted) setLoadingQuestions(false)
       }
     }
-    
-    if (params.id) {
-      initQuestions()
-    }
+    if (params.id) initQuestions()
     return () => { mounted = false }
   }, [params.id, getToken])
 
-  // TTS via edge-tts backend
+  // ─── TTS via edge-tts backend ──────────────────────────────────────────────
   const speak = useCallback(async (text: string, onEnd?: () => void) => {
-    // Stop any currently playing audio
     sourceRef.current?.stop()
     cancelAnimationFrame(animFrameRef.current)
     setAvatarAmplitude(0)
 
     try {
-      // 1. Fetch MP3 from edge-tts backend
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tts/speak`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -132,16 +126,13 @@ export default function InterviewSessionPage() {
 
       const audioData = await res.arrayBuffer()
 
-      // 2. Decode into Web Audio API
       if (!audioCtxRef.current) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
       }
       const ctx = audioCtxRef.current
-
       const audioBuffer = await ctx.decodeAudioData(audioData)
 
-      // 3. Wire: source → analyser → destination
       const analyser = ctx.createAnalyser()
       analyser.fftSize = 256
       analyserRef.current = analyser
@@ -152,16 +143,14 @@ export default function InterviewSessionPage() {
       analyser.connect(ctx.destination)
       sourceRef.current = source
 
-      // 4. Start mouth animation and play — both triggered together
       const dataArr = new Uint8Array(analyser.frequencyBinCount)
       const tick = () => {
         analyser.getByteFrequencyData(dataArr)
         const avg = dataArr.reduce((s, v) => s + v, 0) / dataArr.length
-        setAvatarAmplitude(avg / 255)          // normalise 0-1
+        setAvatarAmplitude(avg / 255)
         animFrameRef.current = requestAnimationFrame(tick)
       }
 
-      // 5. Play — only now does the mouth start moving
       setAvatarSpeaking(true)
       animFrameRef.current = requestAnimationFrame(tick)
       source.start()
@@ -172,120 +161,126 @@ export default function InterviewSessionPage() {
         onEnd?.()
       }
     } catch {
-      // TTS backend unavailable — skip speaking and move to next phase
       setAvatarSpeaking(false)
       setAvatarAmplitude(0)
       onEnd?.()
     }
   }, [])
 
-
-  // Retry counter for transient network errors
-  const retryCountRef = useRef(0)
-  const MAX_RETRIES = 3
-
-  // Speech-to-text — auto-retries on transient network errors
-  const startListening = useCallback(() => {
-    setSpeechError(null)
-    retryCountRef.current = 0
-    transcriptRef.current = ""
-    setTranscript("")
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SR) {
-      setSpeechError("Your browser doesn't support speech recognition. Please type your answer below.")
-      return
-    }
-
-    function createAndStart() {
-      const recognition = new SR()
-      recognition.lang           = "en-US"
-      // Use non-continuous mode + auto-restart for better reliability
-      recognition.continuous     = false
-      recognition.interimResults = true
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      recognition.onresult = (e: any) => {
-        let fullFinal = ""
-        let fullInterim = ""
-        for (let i = 0; i < e.results.length; i++) {
-          const chunk = e.results[i][0].transcript
-          if (e.results[i].isFinal) fullFinal += chunk + " "
-          else fullInterim += chunk
-        }
-        const combined = transcriptRef.current
-          // Append to whatever was recorded before the last restart
-          .replace(/[^\S\n]*$/, " ") + fullFinal + fullInterim
-        const trimmed = combined.trimStart()
-        transcriptRef.current = trimmed
-        setTranscript(trimmed)
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      recognition.onerror = (e: any) => {
-        if (e.error === "not-allowed" || e.error === "permission-denied") {
-          setSpeechError("Microphone access denied. Please allow mic permission, or type your answer below.")
-          setListeningActive(false)
-        } else if (e.error === "network" || e.error === "no-speech" || e.error === "audio-capture") {
-          // Transient errors — retry automatically
-          if (retryCountRef.current < MAX_RETRIES) {
-            retryCountRef.current += 1
-            setTimeout(() => {
-              try { createAndStart() } catch { /* give up */ }
-            }, 800)
-          } else {
-            setSpeechError("Speech recognition unavailable (network issue). Please type your answer below.")
-            setListeningActive(false)
-          }
-        } else {
-          setSpeechError(`Speech error: ${e.error}. Please type your answer below.`)
-          setListeningActive(false)
-        }
-      }
-
-      // When a non-continuous session ends without error, restart to keep recording
-      recognition.onend = () => {
-        if (retryCountRef.current >= 0 && recognitionRef.current === recognition) {
-          // Still supposed to be listening — restart
-          try { createAndStart() } catch { setListeningActive(false) }
-        } else {
-          setListeningActive(false)
-        }
-      }
-
-      recognitionRef.current = recognition
-      recognition.start()
-      setListeningActive(true)
-    }
+  // ─── MediaRecorder: start capturing mic audio ──────────────────────────────
+  const startRecording = useCallback(async () => {
+    setRecordingError(null)
+    chunksRef.current = []
 
     try {
-      createAndStart()
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+
+      // Prefer WebM (Chrome) → OGG (Firefox) → default
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
+        ? "audio/ogg;codecs=opus"
+        : ""
+
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+      mediaRecRef.current = recorder
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+
+      // Collect chunks every second so we don't lose data on abrupt stops
+      recorder.start(1000)
+      setIsRecording(true)
     } catch (err) {
-      console.error("recognition.start() threw:", err)
-      setSpeechError("Could not start microphone. Please type your answer below.")
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes("Permission") || msg.includes("denied") || msg.includes("NotAllowed")) {
+        setRecordingError("Microphone access denied. Please allow mic permission, or type your answer below.")
+      } else {
+        setRecordingError("Could not access microphone. Please type your answer below.")
+      }
     }
   }, [])
 
-  const stopListening = useCallback(() => {
-    retryCountRef.current = -1  // sentinel: intentional stop — tells onend not to restart
-    const current = recognitionRef.current
-    recognitionRef.current = null
-    try { current?.stop() } catch { /* ignore */ }
-    setListeningActive(false)
+  // ─── Stop recording and send to Faster-Whisper backend ────────────────────
+  const stopAndTranscribe = useCallback((): Promise<string> => {
+    return new Promise((resolve) => {
+      const recorder = mediaRecRef.current
+
+      // Stop all mic tracks
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+      setIsRecording(false)
+
+      if (!recorder || recorder.state === "inactive") {
+        // Nothing to transcribe — return whatever was typed manually
+        resolve(transcriptRef.current)
+        return
+      }
+
+      recorder.onstop = async () => {
+        mediaRecRef.current = null
+        const chunks = chunksRef.current
+        chunksRef.current = []
+
+        if (chunks.length === 0) {
+          resolve(transcriptRef.current)
+          return
+        }
+
+        setIsTranscribing(true)
+        try {
+          const blob = new Blob(chunks, { type: chunks[0].type || "audio/webm" })
+          const form = new FormData()
+          form.append("audio", blob, "recording.webm")
+
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/stt/transcribe`,
+            { method: "POST", body: form }
+          )
+
+          if (!res.ok) throw new Error(`STT backend returned ${res.status}`)
+
+          const data = await res.json()
+          const sttText = (data.transcript || "").trim()
+
+          // Merge STT result with any manually typed text
+          const typed = transcriptRef.current.trim()
+          const merged = sttText
+            ? typed
+              ? `${sttText} ${typed}`
+              : sttText
+            : typed
+
+          transcriptRef.current = merged
+          setTranscript(merged)
+          resolve(merged)
+        } catch {
+          // STT failed — fall back to whatever was typed
+          resolve(transcriptRef.current)
+        } finally {
+          setIsTranscribing(false)
+        }
+      }
+
+      recorder.stop()
+    })
   }, [])
 
+  // ─── Interview flow helpers ────────────────────────────────────────────────
   const askQuestion = useCallback(
     (index: number) => {
       setPhase("ai-speaking")
       setTranscript("")
-      setSpeechError(null)
+      transcriptRef.current = ""
+      setRecordingError(null)
       speak(questions[index], () => {
         setPhase("user-answering")
-        startListening()
+        startRecording()
       })
     },
-    [speak, startListening, questions, setSpeechError]
+    [speak, startRecording, questions]
   )
 
   const startInterview = () => {
@@ -294,13 +289,13 @@ export default function InterviewSessionPage() {
     askQuestion(0)
   }
 
-  const handleNext = () => {
-    stopListening()
-    // Read from the ref — not from `transcript` state — to avoid a stale
-    // closure that would capture the empty string set at listen-start.
+  const handleNext = async () => {
+    // Stop mic and wait for transcript from backend
+    const finalTranscript = await stopAndTranscribe()
+
     const current: Answer = {
       question: questions[questionIndex],
-      transcript: transcriptRef.current.trim() || "(no answer recorded)",
+      transcript: finalTranscript.trim() || "(no answer recorded)",
     }
     const updated = [...answers, current]
     setAnswers(updated)
@@ -316,22 +311,35 @@ export default function InterviewSessionPage() {
 
   const toggleMute = () => {
     setIsMuted((m) => {
-      if (!m) stopListening()
-      else if (phase === "user-answering") startListening()
+      if (!m) {
+        // Muting — pause the recorder (keeps stream open but stops collecting)
+        if (mediaRecRef.current?.state === "recording") {
+          mediaRecRef.current.pause()
+        }
+      } else {
+        // Unmuting — resume if we were recording
+        if (mediaRecRef.current?.state === "paused") {
+          mediaRecRef.current.resume()
+        } else if (phase === "user-answering") {
+          startRecording()
+        }
+      }
       return !m
     })
   }
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       window.speechSynthesis?.cancel()
-      recognitionRef.current?.abort()
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+      mediaRecRef.current?.stop()
     }
   }, [])
 
   const progress = Math.round((questionIndex / Math.max(1, questions.length)) * 100)
 
-  // Done phase
+  // ─── Done phase ────────────────────────────────────────────────────────────
   if (phase === "done") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
@@ -367,12 +375,11 @@ export default function InterviewSessionPage() {
     )
   }
 
-  // Intro phase
+  // ─── Intro phase ───────────────────────────────────────────────────────────
   if (phase === "intro") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
         <div className="w-full max-w-lg text-center space-y-8">
-          {/* 3D Avatar in dark card */}
           <div className="w-full rounded-2xl overflow-hidden bg-gradient-to-b from-slate-900 to-slate-800 border border-slate-700 shadow-2xl">
             <AIAvatar3D isSpeaking={false} />
           </div>
@@ -403,7 +410,7 @@ export default function InterviewSessionPage() {
           >
             {loadingQuestions ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Generating Questions...
+                <Loader2 className="h-4 w-4 animate-spin" /> Generating Questions…
               </>
             ) : (
               <>
@@ -416,7 +423,7 @@ export default function InterviewSessionPage() {
     )
   }
 
-  // Interview phase
+  // ─── Interview phase ───────────────────────────────────────────────────────
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Top bar */}
@@ -424,7 +431,11 @@ export default function InterviewSessionPage() {
         <Link
           href="/dashboard/interviews"
           className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          onClick={() => { window.speechSynthesis?.cancel(); recognitionRef.current?.abort() }}
+          onClick={() => {
+            window.speechSynthesis?.cancel()
+            streamRef.current?.getTracks().forEach((t) => t.stop())
+            mediaRecRef.current?.stop()
+          }}
         >
           ← Back
         </Link>
@@ -451,7 +462,7 @@ export default function InterviewSessionPage() {
         </div>
       </div>
 
-      {/* Main layout – single vertical column */}
+      {/* Main layout */}
       <div className="flex flex-1 flex-col items-center gap-5 p-4 max-w-2xl mx-auto w-full">
 
         {/* Avatar */}
@@ -483,32 +494,40 @@ export default function InterviewSessionPage() {
           </p>
         </div>
 
-        {/* Live transcript */}
+        {/* Live transcript / answer box */}
         <div className="w-full rounded-xl border border-dashed bg-muted/30 p-4 space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Your Answer (live)
           </p>
 
-          {/* Speech error banner */}
-          {speechError && (
-            <p className="text-xs text-red-500 font-medium">{speechError}</p>
+          {/* Error banner */}
+          {recordingError && (
+            <p className="text-xs text-red-500 font-medium">{recordingError}</p>
+          )}
+
+          {/* Transcribing indicator */}
+          {isTranscribing && (
+            <div className="flex items-center gap-2 text-xs text-indigo-400">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Transcribing your answer…
+            </div>
           )}
 
           {/* Live spoken text */}
-          {transcript && !speechError ? (
+          {transcript && !isTranscribing ? (
             <p className="text-sm leading-relaxed">{transcript}</p>
-          ) : !speechError ? (
+          ) : !isTranscribing && !recordingError ? (
             <p className="text-sm text-muted-foreground italic">
               {phase === "user-answering"
                 ? isMuted
                   ? "Microphone muted — unmute to answer."
-                  : "🔴 Listening… speak now."
+                  : "🔴 Recording… speak now."
                 : "Waiting for AI to finish…"}
             </p>
           ) : null}
 
-          {/* Typed-answer fallback — shown when speech fails OR always as supplement */}
-          {(speechError || phase === "user-answering") && (
+          {/* Typed-answer fallback */}
+          {(recordingError || phase === "user-answering") && (
             <textarea
               rows={3}
               placeholder="Type your answer here (optional fallback)…"
@@ -534,22 +553,31 @@ export default function InterviewSessionPage() {
           >
             {isMuted
               ? <MicOff className="h-5 w-5 text-red-500" />
-              : <Mic className={`h-5 w-5 ${listeningActive ? "text-green-500" : ""}`} />}
+              : <Mic className={`h-5 w-5 ${isRecording ? "text-green-500" : ""}`} />}
           </Button>
 
           <Button
             size="lg"
             className="flex-1 gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
             onClick={handleNext}
-            disabled={phase === "ai-speaking"}
+            disabled={phase === "ai-speaking" || isTranscribing}
           >
-            {questionIndex + 1 === questions.length ? "Finish Interview" : "Next Question"}
-            <ChevronRight className="h-4 w-4" />
+            {isTranscribing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Transcribing…
+              </>
+            ) : questionIndex + 1 === questions.length ? (
+              <>Finish Interview <ChevronRight className="h-4 w-4" /></>
+            ) : (
+              <>Next Question <ChevronRight className="h-4 w-4" /></>
+            )}
           </Button>
         </div>
 
         <p className="text-xs text-muted-foreground text-center -mt-2">
-          {listeningActive && !isMuted
+          {isTranscribing
+            ? "⏳ Processing your answer…"
+            : isRecording && !isMuted
             ? "🔴 Recording — click Next when done"
             : phase === "ai-speaking"
             ? "🔊 AI is speaking, please wait"
