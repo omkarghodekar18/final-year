@@ -9,6 +9,7 @@ from flask import Flask, jsonify, g, request
 from flask_cors import CORS
 from dotenv import load_dotenv
 from utils.tts_service import generate_speech_bytes
+from utils.stt_service import transcribe_audio
 from flask import Response
 from utils.scheduler import start_scheduler
 import cloudinary
@@ -356,6 +357,39 @@ def tts_speak():
         )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ── Speech-to-Text (Faster-Whisper) ─────────────────────────────────────────
+@app.route("/api/stt/transcribe", methods=["POST", "OPTIONS"])
+def stt_transcribe():
+    """POST multipart/form-data with field 'audio' → {"transcript": "..."}.
+    No auth required (same pattern as /api/tts/speak)."""
+    if request.method == "OPTIONS":
+        return "", 204
+
+    audio_file = request.files.get("audio")
+    if not audio_file:
+        return jsonify({"error": "No audio file provided. Send field name 'audio'."}), 400
+
+    # Determine a sensible file extension from the MIME type so Faster-Whisper
+    # (via ffmpeg) can decode it correctly.
+    mime = (audio_file.mimetype or "").lower()
+    if "ogg" in mime:
+        suffix = ".ogg"
+    elif "mp4" in mime or "m4a" in mime:
+        suffix = ".mp4"
+    elif "wav" in mime:
+        suffix = ".wav"
+    else:
+        suffix = ".webm"  # Chrome / Firefox default
+
+    try:
+        audio_bytes = audio_file.read()
+        transcript = transcribe_audio(audio_bytes, suffix=suffix)
+        return jsonify({"transcript": transcript})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 FREE_MODELS = [
     "google/gemma-3-4b-it:free",
