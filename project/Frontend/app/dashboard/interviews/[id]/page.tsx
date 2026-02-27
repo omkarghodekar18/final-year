@@ -64,12 +64,16 @@ export default function InterviewSessionPage() {
   const [avatarSpeaking, setAvatarSpeaking] = useState(false)
   const [avatarAmplitude, setAvatarAmplitude] = useState(0)   // 0-1 real audio level
   const [listeningActive, setListeningActive] = useState(false)
+  const [speechError, setSpeechError]         = useState<string | null>(null)
 
   const recognitionRef  = useRef<AnySpeechRecognition>(null)
   const audioCtxRef     = useRef<AudioContext | null>(null)
   const analyserRef     = useRef<AnalyserNode | null>(null)
   const animFrameRef    = useRef<number>(0)
   const sourceRef       = useRef<AudioBufferSourceNode | null>(null)
+  // Ref that mirrors `transcript` so handleNext can read the live value
+  // synchronously without depending on a stale closure.
+  const transcriptRef   = useRef<string>("")
 
   // Fetch AI questions on mount
   useEffect(() => {
@@ -176,34 +180,98 @@ export default function InterviewSessionPage() {
   }, [])
 
 
-  // Speech-to-text
+  // Retry counter for transient network errors
+  const retryCountRef = useRef(0)
+  const MAX_RETRIES = 3
+
+  // Speech-to-text — auto-retries on transient network errors
   const startListening = useCallback(() => {
+    setSpeechError(null)
+    retryCountRef.current = 0
+    transcriptRef.current = ""
+    setTranscript("")
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SR) return
-    const recognition          = new SR()
-    recognition.lang           = "en-US"
-    recognition.continuous     = true
-    recognition.interimResults = true
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (e: any) => {
-      let final = ""; let interim = ""
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript
-        if (e.results[i].isFinal) final += t + " "
-        else interim += t
-      }
-      setTranscript((prev) => (final ? prev + final : prev || interim))
+    if (!SR) {
+      setSpeechError("Your browser doesn't support speech recognition. Please type your answer below.")
+      return
     }
-    recognition.onend = () => setListeningActive(false)
-    recognitionRef.current = recognition
-    recognition.start()
-    setListeningActive(true)
-    setTranscript("")
+
+    function createAndStart() {
+      const recognition = new SR()
+      recognition.lang           = "en-US"
+      // Use non-continuous mode + auto-restart for better reliability
+      recognition.continuous     = false
+      recognition.interimResults = true
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onresult = (e: any) => {
+        let fullFinal = ""
+        let fullInterim = ""
+        for (let i = 0; i < e.results.length; i++) {
+          const chunk = e.results[i][0].transcript
+          if (e.results[i].isFinal) fullFinal += chunk + " "
+          else fullInterim += chunk
+        }
+        const combined = transcriptRef.current
+          // Append to whatever was recorded before the last restart
+          .replace(/[^\S\n]*$/, " ") + fullFinal + fullInterim
+        const trimmed = combined.trimStart()
+        transcriptRef.current = trimmed
+        setTranscript(trimmed)
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onerror = (e: any) => {
+        if (e.error === "not-allowed" || e.error === "permission-denied") {
+          setSpeechError("Microphone access denied. Please allow mic permission, or type your answer below.")
+          setListeningActive(false)
+        } else if (e.error === "network" || e.error === "no-speech" || e.error === "audio-capture") {
+          // Transient errors — retry automatically
+          if (retryCountRef.current < MAX_RETRIES) {
+            retryCountRef.current += 1
+            setTimeout(() => {
+              try { createAndStart() } catch { /* give up */ }
+            }, 800)
+          } else {
+            setSpeechError("Speech recognition unavailable (network issue). Please type your answer below.")
+            setListeningActive(false)
+          }
+        } else {
+          setSpeechError(`Speech error: ${e.error}. Please type your answer below.`)
+          setListeningActive(false)
+        }
+      }
+
+      // When a non-continuous session ends without error, restart to keep recording
+      recognition.onend = () => {
+        if (retryCountRef.current >= 0 && recognitionRef.current === recognition) {
+          // Still supposed to be listening — restart
+          try { createAndStart() } catch { setListeningActive(false) }
+        } else {
+          setListeningActive(false)
+        }
+      }
+
+      recognitionRef.current = recognition
+      recognition.start()
+      setListeningActive(true)
+    }
+
+    try {
+      createAndStart()
+    } catch (err) {
+      console.error("recognition.start() threw:", err)
+      setSpeechError("Could not start microphone. Please type your answer below.")
+    }
   }, [])
 
   const stopListening = useCallback(() => {
-    recognitionRef.current?.stop()
+    retryCountRef.current = -1  // sentinel: intentional stop — tells onend not to restart
+    const current = recognitionRef.current
+    recognitionRef.current = null
+    try { current?.stop() } catch { /* ignore */ }
     setListeningActive(false)
   }, [])
 
@@ -211,12 +279,13 @@ export default function InterviewSessionPage() {
     (index: number) => {
       setPhase("ai-speaking")
       setTranscript("")
+      setSpeechError(null)
       speak(questions[index], () => {
         setPhase("user-answering")
         startListening()
       })
     },
-    [speak, startListening, questions]
+    [speak, startListening, questions, setSpeechError]
   )
 
   const startInterview = () => {
@@ -227,9 +296,11 @@ export default function InterviewSessionPage() {
 
   const handleNext = () => {
     stopListening()
+    // Read from the ref — not from `transcript` state — to avoid a stale
+    // closure that would capture the empty string set at listen-start.
     const current: Answer = {
       question: questions[questionIndex],
-      transcript: transcript.trim() || "(no answer recorded)",
+      transcript: transcriptRef.current.trim() || "(no answer recorded)",
     }
     const updated = [...answers, current]
     setAnswers(updated)
@@ -413,20 +484,41 @@ export default function InterviewSessionPage() {
         </div>
 
         {/* Live transcript */}
-        <div className="w-full min-h-[80px] rounded-xl border border-dashed bg-muted/30 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+        <div className="w-full rounded-xl border border-dashed bg-muted/30 p-4 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Your Answer (live)
           </p>
-          {transcript ? (
+
+          {/* Speech error banner */}
+          {speechError && (
+            <p className="text-xs text-red-500 font-medium">{speechError}</p>
+          )}
+
+          {/* Live spoken text */}
+          {transcript && !speechError ? (
             <p className="text-sm leading-relaxed">{transcript}</p>
-          ) : (
+          ) : !speechError ? (
             <p className="text-sm text-muted-foreground italic">
               {phase === "user-answering"
                 ? isMuted
                   ? "Microphone muted — unmute to answer."
-                  : "Listening… speak now."
+                  : "🔴 Listening… speak now."
                 : "Waiting for AI to finish…"}
             </p>
+          ) : null}
+
+          {/* Typed-answer fallback — shown when speech fails OR always as supplement */}
+          {(speechError || phase === "user-answering") && (
+            <textarea
+              rows={3}
+              placeholder="Type your answer here (optional fallback)…"
+              value={transcript}
+              onChange={(e) => {
+                transcriptRef.current = e.target.value
+                setTranscript(e.target.value)
+              }}
+              className="w-full resize-none rounded-lg border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
           )}
         </div>
 
