@@ -63,6 +63,7 @@ export default function InterviewSessionPage() {
   const [isRecording, setIsRecording]           = useState(false)
   const [isTranscribing, setIsTranscribing]     = useState(false)
   const [recordingError, setRecordingError]     = useState<string | null>(null)
+  const [transcribeError, setTranscribeError]   = useState<string | null>(null)
 
   const audioCtxRef    = useRef<AudioContext | null>(null)
   const analyserRef    = useRef<AnalyserNode | null>(null)
@@ -230,6 +231,7 @@ export default function InterviewSessionPage() {
         }
 
         setIsTranscribing(true)
+        setTranscribeError(null)
         try {
           const blob = new Blob(chunks, { type: chunks[0].type || "audio/webm" })
           const form = new FormData()
@@ -240,7 +242,10 @@ export default function InterviewSessionPage() {
             { method: "POST", body: form }
           )
 
-          if (!res.ok) throw new Error(`STT backend returned ${res.status}`)
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}))
+            throw new Error(errData.error || `STT backend returned ${res.status}`)
+          }
 
           const data = await res.json()
           const sttText = (data.transcript || "").trim()
@@ -256,7 +261,10 @@ export default function InterviewSessionPage() {
           transcriptRef.current = merged
           setTranscript(merged)
           resolve(merged)
-        } catch {
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          console.error("Transcription error:", msg)
+          setTranscribeError(msg)
           // STT failed — fall back to whatever was typed
           resolve(transcriptRef.current)
         } finally {
@@ -494,52 +502,6 @@ export default function InterviewSessionPage() {
           </p>
         </div>
 
-        {/* Live transcript / answer box */}
-        <div className="w-full rounded-xl border border-dashed bg-muted/30 p-4 space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Your Answer (live)
-          </p>
-
-          {/* Error banner */}
-          {recordingError && (
-            <p className="text-xs text-red-500 font-medium">{recordingError}</p>
-          )}
-
-          {/* Transcribing indicator */}
-          {isTranscribing && (
-            <div className="flex items-center gap-2 text-xs text-indigo-400">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Transcribing your answer…
-            </div>
-          )}
-
-          {/* Live spoken text */}
-          {transcript && !isTranscribing ? (
-            <p className="text-sm leading-relaxed">{transcript}</p>
-          ) : !isTranscribing && !recordingError ? (
-            <p className="text-sm text-muted-foreground italic">
-              {phase === "user-answering"
-                ? isMuted
-                  ? "Microphone muted — unmute to answer."
-                  : "🔴 Recording… speak now."
-                : "Waiting for AI to finish…"}
-            </p>
-          ) : null}
-
-          {/* Typed-answer fallback */}
-          {(recordingError || phase === "user-answering") && (
-            <textarea
-              rows={3}
-              placeholder="Type your answer here (optional fallback)…"
-              value={transcript}
-              onChange={(e) => {
-                transcriptRef.current = e.target.value
-                setTranscript(e.target.value)
-              }}
-              className="w-full resize-none rounded-lg border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          )}
-        </div>
 
         {/* Controls */}
         <div className="flex w-full items-center gap-4">

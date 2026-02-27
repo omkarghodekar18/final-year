@@ -20,14 +20,20 @@ import cloudinary.uploader
 from pdfminer.high_level import extract_text
 from auth import require_auth
 from models.user import (
-    upsert_user, get_user_by_clerk_id, update_user_profile,
-    ensure_indexes, update_user_resume, get_user_resume_public_id,
+    upsert_user,
+    get_user_by_clerk_id,
+    update_user_profile,
+    ensure_indexes,
+    update_user_resume,
+    get_user_resume_public_id,
     update_user_skills,
 )
 from utils.embedding import generate_embedding
 from utils.qdrant_store import (
-    upsert_resume_vector, ensure_collections,
-    get_resume_embedding, search_similar_jobs,
+    upsert_resume_vector,
+    ensure_collections,
+    get_resume_embedding,
+    search_similar_jobs,
 )
 
 load_dotenv()
@@ -39,7 +45,9 @@ cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 CORS(app, origins=cors_origins, supports_credentials=True)
 
 # ── Resume uploads folder ────────────────────────────────────────────────────
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "resumes")
+UPLOAD_FOLDER = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "resumes"
+)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB max upload size
@@ -56,11 +64,13 @@ cloudinary.config(
 # SkillNer is lazy-loaded on first use
 _skill_extractor = None
 
+
 def get_extractor():
     global _skill_extractor
     if _skill_extractor is None:
         _skill_extractor = get_skill_extractor()
     return _skill_extractor
+
 
 # Create MongoDB indexes and Qdrant collections on startup
 with app.app_context():
@@ -100,30 +110,34 @@ def get_matched_jobs():
     offset = (page - 1) * limit
 
     if not user or not user.get("resume_url"):
-        return jsonify({"has_resume": False, "jobs": [], "page": page, "has_more": False})
+        return jsonify(
+            {"has_resume": False, "jobs": [], "page": page, "has_more": False}
+        )
 
     # Retrieve the resume embedding from Qdrant
     embedding = get_resume_embedding(clerk_id)
     if not embedding:
-        return jsonify({"has_resume": True, "jobs": [], "page": page, "has_more": False})
+        return jsonify(
+            {"has_resume": True, "jobs": [], "page": page, "has_more": False}
+        )
 
     # Find similar jobs in Qdrant.
     # Fetch up to (offset + limit + 1) from the top, then slice the page.
     # This avoids Qdrant's offset capping issue where it silently returns fewer results.
     fetch_count = offset + limit + 1
     all_matches = search_similar_jobs(embedding, limit=fetch_count)
-    
-    page_matches = all_matches[offset:offset + limit]
+
+    page_matches = all_matches[offset : offset + limit]
     has_more = len(all_matches) > offset + limit
     matches = page_matches
 
     jobs_col = get_db()["jobs"]
 
     results = []
-    
+
     # User's current skills to compute missing skills
     user_skills_set = set(user.get("skills", []))
-    
+
     for match in matches:
         job_id = match.payload.get("job_id")
         if not job_id:
@@ -131,13 +145,13 @@ def get_matched_jobs():
         job_doc = jobs_col.find_one({"job_id": job_id})
         if not job_doc:
             continue
-            
+
         full_desc = job_doc.get("description", "")
-        
+
         # Calculate missing skills
         missing_skills = []
         job_skills = job_doc.get("skills")
-        
+
         if job_skills is not None:
             # New format: skills are pre-computed in MongoDB
             job_skills_set = set(job_skills)
@@ -148,36 +162,44 @@ def get_matched_jobs():
                 extractor = get_extractor()
                 if extractor:
                     annotations = extractor.annotate(full_desc)
-                    full_matches = annotations.get("results", {}).get("full_matches", [])
-                    ngram_matches = annotations.get("results", {}).get("ngram_scored", [])
+                    full_matches = annotations.get("results", {}).get(
+                        "full_matches", []
+                    )
+                    ngram_matches = annotations.get("results", {}).get(
+                        "ngram_scored", []
+                    )
                     job_skills_set = set(
-                        [s["doc_node_value"] for s in full_matches] +
-                        [s["doc_node_value"] for s in ngram_matches]
+                        [s["doc_node_value"] for s in full_matches]
+                        + [s["doc_node_value"] for s in ngram_matches]
                     )
                     missing_skills = sorted(list(job_skills_set - user_skills_set))
             except Exception:
                 pass
-                
-        results.append({
-            "job_id": job_id,
-            "title": job_doc.get("title"),
-            "company": job_doc.get("company"),
-            "location": job_doc.get("location"),
-            "country": job_doc.get("country"),
-            "description": full_desc[:300],
-            "apply_link": job_doc.get("apply_link"),
-            "employment_type": job_doc.get("employment_type"),
-            "posted_at": job_doc.get("posted_at"),
-            "match_score": round(match.score * 100, 1),
-            "missing_skills": missing_skills[:7],  # Suggest up to 7 missing skills
-        })
 
-    return jsonify({
-        "has_resume": True,
-        "jobs": results,
-        "page": page,
-        "has_more": has_more,
-    })
+        results.append(
+            {
+                "job_id": job_id,
+                "title": job_doc.get("title"),
+                "company": job_doc.get("company"),
+                "location": job_doc.get("location"),
+                "country": job_doc.get("country"),
+                "description": full_desc[:300],
+                "apply_link": job_doc.get("apply_link"),
+                "employment_type": job_doc.get("employment_type"),
+                "posted_at": job_doc.get("posted_at"),
+                "match_score": round(match.score * 100, 1),
+                "missing_skills": missing_skills[:7],  # Suggest up to 7 missing skills
+            }
+        )
+
+    return jsonify(
+        {
+            "has_resume": True,
+            "jobs": results,
+            "page": page,
+            "has_more": has_more,
+        }
+    )
 
 
 @app.route("/api/auth/sync", methods=["POST"])
@@ -259,7 +281,11 @@ def parse_resume():
     """Accept a PDF resume, extract skills, upload to Cloudinary, and persist."""
     skill_extractor = get_extractor()
     if skill_extractor is None:
-        return jsonify({"error": "Resume parsing is not available. Run setup_dependencies.py first."}), 503
+        return jsonify(
+            {
+                "error": "Resume parsing is not available. Run setup_dependencies.py first."
+            }
+        ), 503
 
     if "resume" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
@@ -271,7 +297,9 @@ def parse_resume():
     # Validate file type
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
-        return jsonify({"error": f"Invalid file type '{ext}'. Only PDF files are accepted."}), 400
+        return jsonify(
+            {"error": f"Invalid file type '{ext}'. Only PDF files are accepted."}
+        ), 400
 
     clerk_id = g.user.get("sub")
 
@@ -286,10 +314,12 @@ def parse_resume():
         annotations = skill_extractor.annotate(text)
         full_matches = annotations["results"]["full_matches"]
         ngram_matches = annotations["results"]["ngram_scored"]
-        skills = sorted(set(
-            [s["doc_node_value"] for s in full_matches] +
-            [s["doc_node_value"] for s in ngram_matches]
-        ))
+        skills = sorted(
+            set(
+                [s["doc_node_value"] for s in full_matches]
+                + [s["doc_node_value"] for s in ngram_matches]
+            )
+        )
 
         # ── Delete old resume from Cloudinary (if any) ──────────────────
         old_public_id = get_user_resume_public_id(clerk_id)
@@ -319,11 +349,13 @@ def parse_resume():
         # Store vector in Qdrant for similarity search
         upsert_resume_vector(clerk_id, resume_embedding)
 
-        return jsonify({
-            "status": "success",
-            "resume_url": resume_url,
-            "skills": skills,
-        })
+        return jsonify(
+            {
+                "status": "success",
+                "resume_url": resume_url,
+                "skills": skills,
+            }
+        )
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -369,7 +401,9 @@ def stt_transcribe():
 
     audio_file = request.files.get("audio")
     if not audio_file:
-        return jsonify({"error": "No audio file provided. Send field name 'audio'."}), 400
+        return jsonify(
+            {"error": "No audio file provided. Send field name 'audio'."}
+        ), 400
 
     # Determine a sensible file extension from the MIME type so Faster-Whisper
     # (via ffmpeg) can decode it correctly.
@@ -385,9 +419,12 @@ def stt_transcribe():
 
     try:
         audio_bytes = audio_file.read()
+        print(f"[STT] Processing audio file: {len(audio_bytes)} bytes, MIME: {mime}")
         transcript = transcribe_audio(audio_bytes, suffix=suffix)
+        print(f"[STT] Transcript result: '{transcript}'")
         return jsonify({"transcript": transcript})
     except Exception as e:
+        print(f"[STT] Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -398,14 +435,14 @@ FREE_MODELS = [
     "mistralai/mistral-small-3.1-24b-instruct:free",
 ]
 
+
 # ── OpenRouter Generate Interview Questions ────────────────────────────────
-@app.route('/api/ask', methods=['POST', 'OPTIONS'])
+@app.route("/api/ask", methods=["POST", "OPTIONS"])
 @require_auth
 def ask_gemma():
     # ── CORS preflight ─────────────────────────────────────────────────────
     if request.method == "OPTIONS":
         return "", 204
-
 
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
     if not OPENROUTER_API_KEY:
@@ -419,7 +456,9 @@ def ask_gemma():
 
     skills = user.get("skills", [])
     if not skills:
-        return jsonify({"error": "No skills found. Please upload your resume first."}), 400
+        return jsonify(
+            {"error": "No skills found. Please upload your resume first."}
+        ), 400
 
     # Use up to 8 skills to keep the prompt focused
     skills_sample = skills
@@ -489,7 +528,9 @@ OUTPUT FORMAT:
             continue
 
     # All models exhausted
-    return jsonify({"error": "rate_limited", "message": last_error or "All models unavailable"}), 503
+    return jsonify(
+        {"error": "rate_limited", "message": last_error or "All models unavailable"}
+    ), 503
 
 
 # ── Run Server ─────────────────────────────────────────────────────────────
