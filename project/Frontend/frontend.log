@@ -1,0 +1,25 @@
+
+> my-v0-project@0.1.0 dev
+> next dev
+
+[32m✔[0m [33mConsole Ninja[0m extension is connected to [33mNext.js[0m, see [36mhttps://tinyurl.com/2vt8jxzw[0m
+⚠ `eslint` configuration in next.config.mjs is no longer supported. See more info here: https://nextjs.org/docs/app/api-reference/cli/next#next-lint-options
+⚠ Invalid next.config.mjs options detected: 
+⚠     Unrecognized key(s) in object: 'eslint'
+⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.110.62:3000
+- Environments: .env
+
+✓ Starting...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+✓ Ready in 3.4s
+○ Compiling /dashboard ...
+ GET /dashboard 200 in 11.1s (compile: 5.0s, proxy.ts: 3.4s, render: 2.7s)
+ POST /dashboard 200 in 105ms (compile: 14ms, proxy.ts: 45ms, render: 46ms)
+ POST /dashboard 200 in 57ms (compile: 9ms, proxy.ts: 30ms, render: 18ms)
+ GET /dashboard 200 in 5.3s (compile: 15ms, proxy.ts: 48ms, render: 5.3s)
+ GET /dashboard/interviews 200 in 343ms (compile: 161ms, proxy.ts: 45ms, render: 137ms)
+ GET /dashboard/profile 200 in 414ms (compile: 240ms, proxy.ts: 33ms, render: 142ms)

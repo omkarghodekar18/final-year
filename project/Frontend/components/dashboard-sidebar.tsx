@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { Home, Video, BarChart3, Briefcase, User, BookOpen } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -18,6 +19,8 @@ const navItems = [
 
 export function DashboardSidebar() {
   const pathname = usePathname();
+  const { user } = useUser();
+  const profileImageUrl = user?.imageUrl;
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-[72px] flex-col items-center border-r border-sidebar-border bg-sidebar py-6 shadow-sm">
@@ -66,9 +69,9 @@ export function DashboardSidebar() {
 
         <Link href="/dashboard/profile" className="group relative">
           <Avatar className="h-10 w-10 border-2 border-sidebar-border transition-all hover:border-primary">
-            <AvatarImage src="/placeholder.svg?height=40&width=40" alt="User" />
+            <AvatarImage src={profileImageUrl || "/placeholder.svg?height=40&width=40"} alt="User" />
             <AvatarFallback className="bg-primary/10 text-primary">
-              JD
+              {user?.firstName?.charAt(0) || user?.lastName?.charAt(0) || "U"}
             </AvatarFallback>
           </Avatar>
           <span className="absolute left-full ml-4 hidden whitespace-nowrap rounded-lg bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-lg group-hover:block">
