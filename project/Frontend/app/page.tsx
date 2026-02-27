@@ -1,16 +1,13 @@
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Check,
   MessageSquare,
   BarChart3,
   Target,
@@ -50,28 +47,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Social Proof
-        <section className="border-y border-border/40 bg-muted/30 py-12">
-          <div className="mx-auto w-full max-w-7xl px-6">
-            <p className="mb-8 text-center text-sm font-medium text-muted-foreground">
-              TRUSTED BY PROFESSIONALS AT
-            </p>
-            <div className="grid grid-cols-2 gap-8 md:grid-cols-4 lg:grid-cols-5">
-              {["Google", "Microsoft", "Amazon", "Meta", "Apple"].map(
-                (company) => (
-                  <div
-                    key={company}
-                    className="flex items-center justify-center"
-                  >
-                    <span className="text-xl font-semibold text-muted-foreground/60">
-                      {company}
-                    </span>
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-        </section> */}
 
         {/* Features Section */}
         <section id="features" className="mx-auto w-full max-w-7xl px-6 py-24">
@@ -137,120 +112,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-
-
-        {/* Pricing Section */}
-        {/* <section id="pricing" className="mx-auto w-full max-w-7xl px-6 py-24">
-          <div className="mb-16 flex flex-col items-center gap-4 text-center">
-            <Badge variant="secondary">Pricing</Badge>
-            <h2 className="text-balance text-4xl font-bold tracking-tight md:text-5xl">
-              Choose your plan
-            </h2>
-            <p className="max-w-2xl text-balance text-lg text-muted-foreground">
-              Start free and upgrade as you grow
-            </p>
-          </div>
-          <div className="grid gap-8 md:grid-cols-3">
-            {[
-              {
-                name: "Free",
-                price: "$0",
-                description: "Perfect for getting started",
-                features: [
-                  "5 mock interviews per month",
-                  "Basic feedback",
-                  "Limited analytics",
-                  "Community support",
-                ],
-              },
-              {
-                name: "Pro",
-                price: "$29",
-                description: "For serious job seekers",
-                features: [
-                  "Unlimited mock interviews",
-                  "Advanced AI feedback",
-                  "Full analytics dashboard",
-                  "Personalized improvement plans",
-                  "Priority support",
-                ],
-                popular: true,
-              },
-              {
-                name: "Enterprise",
-                price: "Custom",
-                description: "For teams and organizations",
-                features: [
-                  "Everything in Pro",
-                  "Custom interview templates",
-                  "Team analytics",
-                  "Dedicated account manager",
-                  "API access",
-                ],
-              },
-            ].map((plan, i) => (
-              <Card
-                key={i}
-                className={
-                  plan.popular ? "border-primary shadow-lg" : "border-border/50"
-                }
-              >
-                <CardHeader>
-                  {plan.popular && (
-                    <Badge className="mb-2 w-fit">Most Popular</Badge>
-                  )}
-                  <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                  <CardDescription>{plan.description}</CardDescription>
-                  <div className="mt-4">
-                    <span className="text-4xl font-bold">{plan.price}</span>
-                    {plan.price !== "Custom" && (
-                      <span className="text-muted-foreground">/month</span>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3">
-                    {plan.features.map((feature, j) => (
-                      <li key={j} className="flex items-start gap-2">
-                        <Check className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                        <span className="text-sm">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Button
-                    className="mt-6 w-full"
-                    variant={plan.popular ? "default" : "outline"}
-                    asChild
-                  >
-                    <Link href="/signup">
-                      {plan.price === "Custom"
-                        ? "Contact Sales"
-                        : "Get Started"}
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section> */}
-
-        {/* CTA Section */}
-        {/* <section className="border-y border-border/40 bg-muted/30 py-24">
-          <div className="mx-auto w-full max-w-7xl px-6">
-            <div className="flex flex-col items-center gap-6 text-center">
-              <h2 className="text-balance text-4xl font-bold tracking-tight md:text-5xl">
-                Ready to ace your next interview?
-              </h2>
-              <p className="max-w-2xl text-balance text-lg text-muted-foreground">
-                Join thousands of professionals who have improved their
-                interview skills with SkillsBridge
-              </p>
-              <Button size="lg" asChild>
-                <Link href="/signup">Start Free Trial</Link>
-              </Button>
-            </div>
-          </div>
-        </section> */}
       </main>
       <SiteFooter />
     </div>

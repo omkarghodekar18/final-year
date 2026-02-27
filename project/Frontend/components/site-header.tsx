@@ -22,12 +22,6 @@ export function SiteHeader() {
             >
               Features
             </Link>
-            {/* <Link
-              href="/#pricing"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Pricing
-            </Link> */}
           </nav>
         </div>
         <div className="flex items-center gap-3">

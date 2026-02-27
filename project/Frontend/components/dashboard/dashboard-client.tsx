@@ -3,11 +3,9 @@
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Users,
   FileText,
@@ -15,25 +13,6 @@ import {
   BarChart3,
 } from "lucide-react";
 import Link from "next/link";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ResponsiveContainer,
-} from "recharts";
-
-const performanceData = [
-  { day: "SUN", value: 65 },
-  { day: "TUE", value: 85 },
-  { day: "WED", value: 90 },
-  { day: "THU", value: 75 },
-  { day: "FRI", value: 70 },
-  { day: "SAT", value: 60 },
-  { day: "SUN", value: 80 },
-];
 
 export default function DashboardClient() {
   return (
@@ -55,235 +34,76 @@ export default function DashboardClient() {
         </p>
       </div>
 
-      {/* Category Tabs */}
-      <Tabs defaultValue="all" className="mb-8">
-        {/* <TabsList className="mb-6 justify-center">
-          <TabsTrigger value="all">All Writer</TabsTrigger>
-          <TabsTrigger value="favorites">Favorites</TabsTrigger>
-          <TabsTrigger value="writing">Writing & Content</TabsTrigger>
-          <TabsTrigger value="ielts">IELTS</TabsTrigger>
-          <TabsTrigger value="academic">Academic & Education</TabsTrigger>
-          <TabsTrigger value="research">Research & PHD</TabsTrigger>
-        </TabsList> */}
+      {/* Feature Cards */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
+        <Link href="/dashboard/interviews" className="group block">
+          <Card className="h-full cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-pink-400/40 group-hover:border-pink-400/40">
+            <CardHeader>
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-pink-100 transition-transform group-hover:scale-110">
+                <Users className="h-6 w-6 text-pink-600" />
+              </div>
+              <CardTitle className="text-xl">Mock Interview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Practice real interview questions with AI. Build confidence
+                and improve your answers with instant feedback.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        {/* Filter Bar */}
-        {/* <div className="mb-6 flex items-center justify-between">
-          <div className="flex gap-4">
-            <Button variant="ghost" size="sm">
-              Tranding
-            </Button>
-            <Button variant="ghost" size="sm">
-              Popular
-            </Button>
-            <Button variant="ghost" size="sm">
-              New
-            </Button>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="icon" aria-label="Search">
-              <Search className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="sm" className="gap-2">
-              <SlidersHorizontal className="h-4 w-4" />
-              Filter
-            </Button>
-          </div>
-        </div> */}
+        <Link href="/dashboard/analytics" className="group block">
+          <Card className="h-full cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-amber-400/40 group-hover:border-amber-400/40">
+            <CardHeader>
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 transition-transform group-hover:scale-110">
+                <BarChart3 className="h-6 w-6 text-amber-600" />
+              </div>
+              <CardTitle className="text-xl">AI Feedback</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Review AI-generated feedback from your past interviews with
+                strengths and areas to improve.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <TabsContent value="all" className="space-y-8">
-          {/* Tool Cards */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <Link href="/dashboard/interviews" className="group block">
-              <Card className="h-full cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-pink-400/40 group-hover:border-pink-400/40">
-                <CardHeader>
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-pink-100 transition-transform group-hover:scale-110">
-                    <Users className="h-6 w-6 text-pink-600" />
-                  </div>
-                  <CardTitle className="text-xl">Mock Interview</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    Practice real interview questions with AI. Build confidence
-                    and improve your answers with instant feedback.
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
+        <Link href="/dashboard/jobs" className="group block">
+          <Card className="h-full cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-emerald-400/40 group-hover:border-emerald-400/40">
+            <CardHeader>
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 transition-transform group-hover:scale-110">
+                <Briefcase className="h-6 w-6 text-emerald-600" />
+              </div>
+              <CardTitle className="text-xl">Jobs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Browse AI-matched job recommendations tailored to your
+                resume and skill set.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
-            <Link href="/dashboard/analytics" className="group block">
-              <Card className="h-full cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-amber-400/40 group-hover:border-amber-400/40">
-                <CardHeader>
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 transition-transform group-hover:scale-110">
-                    <BarChart3 className="h-6 w-6 text-amber-600" />
-                  </div>
-                  <CardTitle className="text-xl">AI Feedback</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    Review AI-generated feedback from your past interviews with
-                    strengths and areas to improve.
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href="/dashboard/jobs" className="group block">
-              <Card className="h-full cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-emerald-400/40 group-hover:border-emerald-400/40">
-                <CardHeader>
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 transition-transform group-hover:scale-110">
-                    <Briefcase className="h-6 w-6 text-emerald-600" />
-                  </div>
-                  <CardTitle className="text-xl">Jobs</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    Browse AI-matched job recommendations tailored to your
-                    resume and skill set.
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href="/dashboard/upskilling" className="group block">
-              <Card className="h-full cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-blue-400/40 group-hover:border-blue-400/40">
-                <CardHeader>
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 transition-transform group-hover:scale-110">
-                    <FileText className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <CardTitle className="text-xl">Upskilling</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    Identify skill gaps based on job trends and receive
-                    personalized learning paths.
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-
-            {/* <Card className="transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-100">
-                  <PenTool className="h-6 w-6 text-cyan-600" />
-                </div>
-                <CardTitle className="text-xl">Grammar Checker</CardTitle>
-                <div className="flex items-center gap-1 text-sm">
-                  <Star className="h-4 w-4 fill-orange-400 text-orange-400" />
-                  <span className="font-semibold">4.7</span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  Instantly correct grammar, punctuation, and sentence
-                  structure. Get clear suggestions to improve your writing.
-                </p>
-              </CardContent>
-            </Card> */}
-          </div>
-
-          {/* Performance Section */}
-          {/* <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-xl">Performance</CardTitle>
-                    <CardDescription>
-                      Total performance progress statas
-                    </CardDescription>
-                  </div>
-                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
-                    + 235,21%
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-6 grid grid-cols-2 gap-4">
-                  <div className="rounded-lg border p-4">
-                    <div className="mb-2 text-sm text-muted-foreground">
-                      Credit Score
-                    </div>
-                    <div className="text-3xl font-bold">2,442</div>
-                  </div>
-                  <div className="rounded-lg border p-4">
-                    <div className="mb-2 text-sm text-muted-foreground">
-                      Loss Credit Score
-                    </div>
-                    <div className="text-3xl font-bold">-1,205</div>
-                  </div>
-                </div>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={performanceData}>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      vertical={false}
-                      stroke="#e5e7eb"
-                    />
-                    <XAxis
-                      dataKey="day"
-                      axisLine={false}
-                      tickLine={false}
-                      className="text-xs"
-                    />
-                    <YAxis hide />
-                    <Bar dataKey="value" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl">64%</CardTitle>
-                <CardDescription>Total Activity</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div>
-                  <div className="mb-2 flex justify-between text-xs text-muted-foreground">
-                    <span>20%</span>
-                    <span>35%</span>
-                    <span>41%</span>
-                  </div>
-                  <div className="flex h-2 overflow-hidden rounded-full">
-                    <div className="bg-purple-500" style={{ width: "20%" }} />
-                    <div className="bg-blue-500" style={{ width: "35%" }} />
-                    <div className="bg-orange-500" style={{ width: "41%" }} />
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-purple-500" />
-                      <span className="text-sm text-muted-foreground">
-                        In Progress
-                      </span>
-                    </div>
-                    <span className="text-2xl font-bold">8</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-blue-500" />
-                      <span className="text-sm text-muted-foreground">
-                        Completed
-                      </span>
-                    </div>
-                    <span className="text-2xl font-bold">12</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-orange-500" />
-                      <span className="text-sm text-muted-foreground">
-                        Up Coming
-                      </span>
-                    </div>
-                    <span className="text-2xl font-bold">14</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div> */}
-        </TabsContent>
-      </Tabs>
+        <Link href="/dashboard/upskilling" className="group block">
+          <Card className="h-full cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-blue-400/40 group-hover:border-blue-400/40">
+            <CardHeader>
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 transition-transform group-hover:scale-110">
+                <FileText className="h-6 w-6 text-blue-600" />
+              </div>
+              <CardTitle className="text-xl">Upskilling</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Identify skill gaps based on job trends and receive
+                personalized learning paths.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
     </main>
   );
 }

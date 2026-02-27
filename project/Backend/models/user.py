@@ -156,6 +156,16 @@ def update_user_resume(
     return _serialize(result)
 
 
+def update_user_skills(clerk_id: str, skills: list[str]) -> dict | None:
+    """Update only the skills array for a user."""
+    result = _collection().find_one_and_update(
+        {"clerk_id": clerk_id},
+        {"$set": {"skills": skills, "updated_at": datetime.now(timezone.utc)}},
+        return_document=ReturnDocument.AFTER,
+    )
+    return _serialize(result)
+
+
 def get_user_resume_public_id(clerk_id: str) -> str | None:
     """Return the Cloudinary public_id of the user's current resume (if any)."""
     user = _collection().find_one({"clerk_id": clerk_id}, {"resume_public_id": 1})

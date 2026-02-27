@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import {
   Mail, MapPin, Briefcase, Calendar, Award, Loader2,
-  Upload, FileText, CheckCircle2, XCircle, ExternalLink,
+  Upload, FileText, CheckCircle2, XCircle, ExternalLink, Plus, X,
 } from "lucide-react"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -194,22 +194,7 @@ function ResumeUploadCard({ resumeUrl, savedSkills, onUploaded }: ResumeUploadCa
           )}
         </div>
 
-        {/* Extracted skills */}
-        {skills.length > 0 && (
-          <div className="space-y-3 rounded-xl border bg-muted/30 p-5">
-            <h4 className="flex items-center gap-2 text-sm font-semibold">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-              Extracted Skills ({skills.length})
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {skills.map((skill) => (
-                <Badge key={skill} variant="secondary">
-                  {skill}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
+
       </CardContent>
     </Card>
   )
@@ -234,6 +219,11 @@ export default function ProfilePage() {
   const [createdAt, setCreatedAt] = useState("")
   const [resumeUrl, setResumeUrl] = useState("")
   const [profileSkills, setProfileSkills] = useState<string[]>([])
+
+  // Skills state
+  const [newSkill, setNewSkill] = useState("")
+  const [isAddingSkill, setIsAddingSkill] = useState(false)
+  const [savingSkills, setSavingSkills] = useState(false)
 
   // Snapshot of last-saved values (for Cancel)
   const [saved, setSaved] = useState<UserProfile>({})
@@ -318,6 +308,45 @@ export default function ProfilePage() {
   const joinedDate = createdAt
     ? new Date(createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })
     : ""
+
+  // ── Save skills ───────────────────────────────────────────────────────────
+  const handleUpdateSkills = async (updatedSkills: string[]) => {
+    setSavingSkills(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_BASE}/api/skills`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ skills: updatedSkills }),
+      })
+      if (!res.ok) throw new Error("Failed to update skills")
+      const updated: UserProfile = await res.json()
+      setProfileSkills(updated.skills ?? [])
+    } catch {
+      toast.error("Failed to update skills")
+    } finally {
+      setSavingSkills(false)
+    }
+  }
+
+  const handleAddSkill = () => {
+    if (!newSkill.trim()) {
+      setIsAddingSkill(false)
+      return
+    }
+    const updated = [...profileSkills, newSkill.trim()]
+    handleUpdateSkills(updated)
+    setNewSkill("")
+    setIsAddingSkill(false)
+  }
+
+  const handleRemoveSkill = (skillToRemove: string) => {
+    const updated = profileSkills.filter((s) => s !== skillToRemove)
+    handleUpdateSkills(updated)
+  }
 
   if (loading) {
     return (
@@ -468,37 +497,61 @@ export default function ProfilePage() {
 
         {/* Skills & Interests */}
         <Card>
-          <CardHeader>
-            <CardTitle>Skills &amp; Interests</CardTitle>
-            <CardDescription>Areas you&apos;re focusing on for interview preparation</CardDescription>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="space-y-4">
               <div>
-                <Label className="mb-3 block">Technical Skills</Label>
-                <div className="flex flex-wrap gap-2">
-                  <Badge>JavaScript</Badge>
-                  <Badge>React</Badge>
-                  <Badge>Node.js</Badge>
-                  <Badge>Python</Badge>
-                  <Badge>System Design</Badge>
-                  <Badge>Algorithms</Badge>
-                  <Badge>Data Structures</Badge>
-                  <Badge>TypeScript</Badge>
+                <Label className="mb-3 flex items-center gap-2">
+                  Technical Skills ({profileSkills.length})
+                  {savingSkills && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                </Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {profileSkills.length > 0 ? (
+                    profileSkills.map((skill) => (
+                      <Badge key={skill} className="flex items-center gap-1 group pr-1.5">
+                        {skill}
+                        <button
+                          onClick={() => handleRemoveSkill(skill)}
+                          className="h-3.5 w-3.5 rounded-full opacity-50 transition-opacity hover:opacity-100 hover:bg-muted/20 flex items-center justify-center focus:outline-none"
+                          disabled={savingSkills}
+                        >
+                          <X className="h-2.5 w-2.5" />
+                          <span className="sr-only">Remove {skill}</span>
+                        </button>
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground mr-2">No skills added yet.</p>
+                  )}
+                  
+                  {isAddingSkill ? (
+                    <Input
+                      autoFocus
+                      className="h-6 w-32 px-2 py-0 text-xs inline-flex"
+                      placeholder="New skill..."
+                      value={newSkill}
+                      onChange={(e) => setNewSkill(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleAddSkill()
+                        if (e.key === "Escape") {
+                          setIsAddingSkill(false)
+                          setNewSkill("")
+                        }
+                      }}
+                      onBlur={handleAddSkill}
+                      disabled={savingSkills}
+                    />
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="cursor-pointer border-dashed hover:bg-muted/50 text-muted-foreground flex items-center gap-1 py-0.5"
+                      onClick={() => setIsAddingSkill(true)}
+                    >
+                      <Plus className="h-3 w-3" />
+                      Add Skill
+                    </Badge>
+                  )}
                 </div>
               </div>
-              <div>
-                <Label className="mb-3 block">Interview Types</Label>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">Behavioral</Badge>
-                  <Badge variant="secondary">Technical</Badge>
-                  <Badge variant="secondary">System Design</Badge>
-                  <Badge variant="secondary">Leadership</Badge>
-                </div>
-              </div>
-              <Button variant="outline" size="sm">
-                Edit Skills
-              </Button>
             </div>
           </CardContent>
         </Card>

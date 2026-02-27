@@ -67,7 +67,7 @@ export default function InterviewsPage() {
       setHasMore(data.has_more || false)
       setPage(pageNum)
     } catch {
-      setError("Could not load job recommendations")
+      setError("Could not load interviews")
     } finally {
       if (pageNum === 1) setLoading(false)
       setLoadingMore(false)

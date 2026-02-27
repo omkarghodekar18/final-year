@@ -21,6 +21,7 @@ from auth import require_auth
 from models.user import (
     upsert_user, get_user_by_clerk_id, update_user_profile,
     ensure_indexes, update_user_resume, get_user_resume_public_id,
+    update_user_skills,
 )
 from utils.embedding import generate_embedding
 from utils.qdrant_store import (
@@ -224,6 +225,27 @@ def update_me():
         job_title=body.get("job_title"),
         bio=body.get("bio"),
     )
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    return jsonify(user)
+
+
+@app.route("/api/skills", methods=["PUT"])
+@require_auth
+def update_skills():
+    """Update the authenticated user's skills list."""
+    body = request.get_json(silent=True) or {}
+    skills = body.get("skills")
+
+    if not isinstance(skills, list):
+        return jsonify({"error": "skills must be a list"}), 400
+
+    # Deduplicate and clean
+    skills = sorted(set(s.strip() for s in skills if isinstance(s, str) and s.strip()))
+
+    clerk_id = g.user.get("sub")
+    user = update_user_skills(clerk_id, skills)
 
     if not user:
         return jsonify({"error": "User not found"}), 404

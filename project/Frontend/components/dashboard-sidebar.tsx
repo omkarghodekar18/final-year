@@ -10,7 +10,7 @@ import { ThemeToggle } from "./theme-toggle";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/dashboard/interviews", label: "Interviews", icon: Video },
-  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/dashboard/analytics", label: "AI Feedback", icon: BarChart3 },
   { href: "/dashboard/jobs", label: "Jobs", icon: Briefcase },
   { href: "/dashboard/upskilling", label: "Upskilling", icon: BookOpen },
   { href: "/dashboard/profile", label: "Profile", icon: User },
