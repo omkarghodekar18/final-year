@@ -360,7 +360,7 @@ def tts_speak():
 FREE_MODELS = [
     "google/gemma-3-4b-it:free",
     "meta-llama/llama-3.3-70b-instruct:free",
-    "deepseek/deepseek-chat-v3-0324:free",
+    "deepseek/deepseek-v2-lite-chat:free",
     "mistralai/mistral-small-3.1-24b-instruct:free",
 ]
 
@@ -372,16 +372,10 @@ def ask_gemma():
     if request.method == "OPTIONS":
         return "", 204
 
-    data = request.get_json(silent=True) or {}
-    raw_job_id = data.get("job_id")
 
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
     if not OPENROUTER_API_KEY:
         return jsonify({"error": "OPENROUTER_API_KEY not configured"}), 500
-
-    job_id = unquote(raw_job_id) if raw_job_id else None
-    if not job_id:
-        return jsonify({"error": "job_id is required"}), 400
 
     # ── Fetch User ─────────────────────────────────────────────────────────
     clerk_id = g.user.get("sub")
@@ -390,45 +384,29 @@ def ask_gemma():
         return jsonify({"error": "User not found"}), 404
 
     skills = user.get("skills", [])
-    resume_context = ", ".join(skills) if skills else "No skills listed"
+    if not skills:
+        return jsonify({"error": "No skills found. Please upload your resume first."}), 400
 
-    # ── Fetch Job ──────────────────────────────────────────────────────────
-    jobs_col = get_db()["jobs"]
-    job_doc = jobs_col.find_one({"job_id": job_id})
-    if not job_doc:
-        try:
-            job_doc = jobs_col.find_one({"_id": ObjectId(job_id)})
-        except InvalidId:
-            pass
-    if not job_doc:
-        return jsonify({"error": "Job not found"}), 404
-
-    job_title = job_doc.get("title", "this role")
-    jd = job_doc.get("description", "")[:4000]
+    # Use up to 8 skills to keep the prompt focused
+    skills_sample = skills
+    skills_str = ", ".join(skills_sample)
 
     # ── Prompt ─────────────────────────────────────────────────────────────
-    prompt = f"""You are a senior technical interviewer conducting a mock interview.
-
-TASK: Generate EXACTLY 5 realistic interview questions.
-
+    prompt = f"""You are a technical interviewer. Generate EXACTLY 5 technical questions. Consider only technical skills and frameworks for the question: 
+    2 CS Fundamental questions from (OOP, DBMS, OS, CNS)
+    2 technical questions from technical skills and frameworks
+    1 question behavioural question
 RULES:
-- Role: {job_title}
-- Use job requirements
-- Adapt difficulty to candidate skills
-- Include: 2 technical, 1 problem-solving, 1 scenario, 1 behavioral
-- Avoid generic textbook questions
-- Sound like a real interviewer
-- DO NOT explain anything
-- OUTPUT ONLY VALID JSON
+- Questions must be short and conceptual, like textbook questions (e.g., "What is a Promise in JavaScript?", "What does the virtual DOM do in React?", "Explain the difference between SQL and NoSQL.")
+- Do NOT ask scenario-based, project-based, or behavioural questions
+- Do NOT mention any job description or job role
+- Cover different skills — do not ask multiple questions about the same topic
+- OUTPUT ONLY A VALID JSON ARRAY of exactly 5 question strings, with no extra text before or after
+
+CANDIDATE SKILLS: {skills_str}
 
 OUTPUT FORMAT:
-["Question 1?", "Question 2?", "Question 3?", "Question 4?", "Question 5?"]
-
-JOB DESCRIPTION:
-{jd}
-
-CANDIDATE SKILLS:
-{resume_context}"""
+["Question 1?", "Question 2?", "Question 3?", "Question 4?", "Question 5?"]"""
 
     # Call OpenRouter (try models in order, skip on 429)
     last_error = None
@@ -444,7 +422,7 @@ CANDIDATE SKILLS:
                 json={
                     "model": model,
                     "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.4,
+                    "temperature": 0.3,
                 },
                 timeout=30,
             )

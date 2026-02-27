@@ -17,7 +17,11 @@ def get_qdrant() -> QdrantClient:
     global _client
     if _client is None:
         url = os.getenv("QDRANT_URL")
+        print("Qrant url ", url)
+
         api_key = os.getenv("QDRANT_API_KEY")
+        print("Qrant url ", api_key)
+
         if not url:
             raise RuntimeError("QDRANT_URL is not set in .env")
         _client = QdrantClient(url=url, api_key=api_key)
@@ -111,12 +115,12 @@ def search_similar_jobs(embedding: list[float], limit: int = 10):
     by slicing the returned list, which avoids Qdrant's offset-capping issue.
     """
     client = get_qdrant()
-    results = client.search(
+    results = client.query_points(
         collection_name="jobs",
-        query_vector=embedding,
+        query=embedding,
         limit=limit,
     )
-    return results
+    return results.points
 
 
 def _stable_int_id(string_id: str) -> int:
